@@ -1,1 +1,4 @@
-PyAudio
+matplotlib
+numpy
+scipy
+sounddevice
