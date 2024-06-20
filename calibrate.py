@@ -1,118 +1,144 @@
-import argparse
-import queue
 import sys
+import math
 
-from matplotlib.animation import FuncAnimation
-import matplotlib.pyplot as plt
-import numpy as np
-import sounddevice as sd
+import pyaudio
 
-parser = argparse.ArgumentParser(add_help=False)
-parser.add_argument("-l", "--list-devices", action="store_true", help="show list of audio devices and exit")
-args, remaining = parser.parse_known_args()
-if args.list_devices:
-    print(sd.query_devices())
-    parser.exit(0)
 
-parser = argparse.ArgumentParser(
-    description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter, parents=[parser]
-)
+class SineWave:
+    def __init__(
+        self, frequency: float = 1000.0, samplerate: int = 44100, dbfs: float = -12.0
+    ):
+        self.frequency = frequency
+        self.samplerate = samplerate
+        self.amplitude = 10 ** (dbfs / 20.0)
+        self.period = int(samplerate / frequency)
+        self.lookup_table = [
+            self.amplitude
+            * math.sin(
+                2.0
+                * math.pi
+                * self.frequency
+                * (float(i % self.period) / float(self.samplerate))
+            )
+            for i in range(self.period)
+        ]
+        self.idx = 0
 
-parser.add_argument("-d", "--device", type=int, help="output device (numeric xID or substring)")
-parser.add_argument(
-    "frequency",
-    nargs="?",
-    metavar="FREQUENCY",
-    type=float,
-    default=1000,
-    help="frequency in Hz (default: %(default)s)",
-)
-parser.add_argument("-a", "--amplitude", type=float, default=0.5, help="amplitude (default: %(default)s)")
+    def __next__(self):
+        value = self.lookup_table[self.idx % self.period]
+        self.idx += 1
+        return value
 
-parser.add_argument("-fs", "--samplerate", type=int, default=48000, help="sampling rate of the device")
-parser.add_argument("-t", "--dtype", type=str, default="int24", help="data type")
+    def __iter__(self):
+        return self
 
-parser.add_argument("-o", "--output_channel", type=int, default=1, help="output channel")
-parser.add_argument("-i", "--input_channel", type=int, default=1, help="input channel")
+    def __call__(self, num_samples):
+        return [self.__next__() for _ in range(num_samples)]
 
-parser.add_argument(
-    "-n", "--downsample", type=int, default=10, metavar="N", help="display every Nth sample (default: %(default)s)"
-)
-parser.add_argument(
-    "-w",
-    "--window",
-    type=float,
-    default=100,
-    metavar="DURATION",
-    help="visible time slot (default: %(default)s ms)",
-)
-parser.add_argument(
-    "--interval", type=float, default=30, help="minimum time between plot updates (default: %(default)s ms)"
-)
 
-args = parser.parse_args(remaining)
+def pack(data: list) -> bytes:
+    # Convert floating-point audio data to 24-bit data
+    return b"".join(
+        (int(8388607.0 * sample)).to_bytes(3, byteorder="little", signed=True)
+        for sample in data
+    )
 
-q_in = queue.Queue()
-q_out = queue.Queue()
-start_idx = 0
-length = int(args.window * args.samplerate / (1000 * args.downsample))
-plotdata = np.zeros((length, 2))
 
-try:
+def main():
+    device_index = 6
+    samplerate = 96000
 
-    def callback(indata, outdata, frames, time, status):
+    dbfs = -12
+    frequency = 1000
+
+    in_channel = 1  # 1-based index
+    in_channels = 1
+    out_channel = 3  # 1-based index
+    out_channels = 4
+
+    sine_wave = SineWave(frequency, samplerate, dbfs)
+
+    # Define callback for playback
+    def play_callback(in_data, frame_count, time_info, status):
         if status:
             print(status, file=sys.stderr)
+        data = []
+        length = frame_count * out_channels
+        for i in range(length):
+            if (i % out_channels) + 1 == out_channel:
+                data.append(next(sine_wave))
+            else:
+                data.append(0)
+        data_bytes = pack(data)
+        return (data_bytes, pyaudio.paContinue)
 
-        global start_idx
-        t = (start_idx + np.arange(frames)) / args.samplerate
-        outdata[:, args.output_channel - 1] = args.amplitude * np.sin(2 * np.pi * args.frequency * t)
-        start_idx += frames
-        q_out.put(outdata[:: args.downsample, args.output_channel - 1])
-        q_in.put(indata[:: args.downsample, args.input_channel - 1])
+    j = 0
+    peak_dbfs = 0
 
-    def update_plot(frame):
-        """This is called by matplotlib for each plot update.
+    # # Define callback for recording
+    # def record_callback(in_data, frame_count, time_info, status):
+    #     nonlocal peak_dbfs
+    #     nonlocal j
+    #     if status:
+    #         print(status, file=sys.stderr)
+    #     length = frame_count * out_channels
+    #     for i in range(length):
+    #         if (i % out_channels) + 1 == in_channel:
+    #             current_dbfs = 20.0 * math.log10(abs(int(in_data[i]) / 8388607.0))
+    #             if peak_dbfs < current_dbfs:
+    #                 peak_dbfs = current_dbfs
 
-        Typically, audio callbacks happen more frequently than plot updates,
-        therefore the queue tends to contain multiple blocks of audio data.
+    #     j += 1
+    #     if j >= 48000:
+    #         print("Peak dBFS: " + peak_dbfs)
+    #         j = 0
 
-        """
-        global plotdata
-        while True:
-            try:
-                data_out = q_out.get_nowait()
-                data_in = q_in.get_nowait()
-            except queue.Empty:
-                break
-            shift = len(data_out)
-            plotdata = np.roll(plotdata, -shift, axis=0)
-            plotdata[-shift:, 0] = data_out
-            plotdata[-shift:, 1] = data_in
-        for column, line in enumerate(lines):
-            line.set_ydata(plotdata[:, column])
-        return lines
+    #     return (None, pyaudio.paContinue)
 
-    fig, ax = plt.subplots()
-    lines = ax.plot(plotdata)
-    # if len(args.channels) > 1:
-    #     ax.legend([f'channel {c}' for c in args.channels],
-    #             loc='lower left', ncol=len(args.channels))
-    ax.axis((0, len(plotdata), -1, 1))
-    ax.set_yticks([0])
-    ax.yaxis.grid(True)
-    ax.tick_params(bottom=False, top=False, labelbottom=False, right=False, left=False, labelleft=False)
-    fig.tight_layout(pad=0)
+    # Instantiate PyAudio and initialize PortAudio system resources
+    p = pyaudio.PyAudio()
 
-    device_info = sd.query_devices(args.device, "output")
+    # # Print all devices
+    # for i in range(p.get_device_count()):
+    #     print(p.get_device_info_by_index(i))
 
-    stream = sd.Stream(device=args.device, channels=1, callback=callback, samplerate=args.samplerate)
+    # # Print all host APIs
+    # for i in range(p.get_host_api_count()):
+    #     print(p.get_host_api_info_by_index(i))
 
-    ani = FuncAnimation(fig, update_plot, interval=args.interval, blit=True)
-    with stream:
-        plt.show()
+    # in_stream = p.open(
+    #     format=pyaudio.paInt24,
+    #     channels=in_channels,
+    #     rate=samplerate,
+    #     output_device_index=device_index,
+    #     input=True,
+    #     stream_callback=record_callback,
+    # )
 
-except KeyboardInterrupt:
-    exit(0)
-except Exception as e:
-    parser.exit(type(e).__name__ + ": " + str(e))
+    out_stream = p.open(
+        format=pyaudio.paInt24,
+        channels=out_channels,
+        rate=samplerate,
+        output_device_index=device_index,
+        output=True,
+        stream_callback=play_callback,
+    )
+
+    # Keep the stream active for a few seconds
+    print("Adjust the gain to ")
+    try:
+        while out_stream.is_active():
+            pass
+    except KeyboardInterrupt:
+        pass
+
+    # Clean up
+    # in_stream.stop_stream()
+    out_stream.stop_stream()
+    # in_stream.close()
+    out_stream.close()
+    p.terminate()
+
+
+if __name__ == "__main__":
+    main()
