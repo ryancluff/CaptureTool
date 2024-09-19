@@ -1,13 +1,14 @@
 import sys
 import math
+import queue
+import shutil
 import time
 
 import numpy as np
-from scipy.fft import fft
-
-import pyaudio
-
+import sounddevice as sd
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+
 
 class SineWave:
     def __init__(
@@ -40,6 +41,7 @@ def pack(data: np.array) -> bytes:
         for sample in data
     )
 
+
 def unpack(data: bytes) -> np.array:
     # Convert 24-bit data to floating-point audio data
     return np.array(
@@ -54,81 +56,105 @@ def main():
     device_index = 6
     samplerate = 96000
 
-    chunk = 1024
+    chunk = 960
 
     db_fs = -6
     frequency = 1000
 
+    n = 5
+
     in_channel = 1  # 1-based index
-    in_channels = 1
-    out_channel = 3  # 1-based index
+    in_channels = 4
+    out_channel = 1  # 1-based index
     out_channels = 4
 
+    magnitude = np.zeros(n)
     sine_wave = SineWave(frequency, samplerate, db_fs)
 
-    # Define callback for playback
-    def play_callback(in_data, frame_count, time_info, status):
-        if status:
-            print(status, file=sys.stderr)
+    # plot
+    window = 200
+    downsample = 10
+    q = queue.Queue()
+    length = int(window * samplerate / (1000 * downsample))
+    plotdata = np.zeros((length, 2))
+    fig, ax = plt.subplots()
 
-        npdata = np.zeros((frame_count, out_channels))
-
-        for i in range(frame_count):
-            npdata[i, out_channel - 1] = next(sine_wave)
-
-        data_bytes = pack(npdata.flatten())
-        return (data_bytes, pyaudio.paContinue)
-
-    # Instantiate PyAudio and initialize PortAudio system resources
-    p = pyaudio.PyAudio()
-
-    # Print all devices
-    for i in range(p.get_device_count()):
-        print(p.get_device_info_by_index(i))
-
-    # Print all host APIs
-    for i in range(p.get_host_api_count()):
-        print(p.get_host_api_info_by_index(i))
-
-    out_stream = p.open(
-        format=pyaudio.paInt24,
-        channels=out_channels,
-        rate=samplerate,
-        output_device_index=device_index,
-        output=True,
-        stream_callback=play_callback,
+    lines = ax.plot(plotdata)
+    ax.legend(["output", "input"], loc="lower left", ncol=2)
+    ax.axis((0, len(plotdata), -1, 1))
+    ax.set_yticks([0, 0.5])
+    ax.yaxis.grid(True)
+    ax.tick_params(
+        bottom=False,
+        top=False,
+        labelbottom=False,
+        right=False,
+        left=False,
+        labelleft=False,
     )
+    fig.tight_layout(pad=0)
 
-    time.sleep(1)
+    try:
 
-    in_stream = p.open(
-        format=pyaudio.paInt24,
-        channels=in_channels,
-        rate=samplerate,
-        output_device_index=device_index,
-        input=True,
-    )
+        def update_plot(frame):
+            """This is called by matplotlib for each plot update.
 
-    window = np.zeros([], dtype=np.float32)
-    for _ in range(0, samplerate // chunk * 5):
-        npdata = unpack(in_stream.read(chunk))
-        npdata = npdata.reshape(chunk, in_channels)
-        window = np.append(window, npdata[::, in_channel - 1])
+            Typically, audio callbacks happen more frequently than plot updates,
+            therefore the queue tends to contain multiple blocks of audio data.
 
-    # Clean up
-    in_stream.stop_stream()
-    out_stream.stop_stream()
-    in_stream.close()
-    out_stream.close()
-    p.terminate()
+            """
+            nonlocal plotdata
+            while True:
+                try:
+                    data = q.get_nowait()
+                except queue.Empty:
+                    break
+                shift = data.shape[0]
+                plotdata = np.roll(plotdata, -shift, axis=0)
+                plotdata[-shift:, :] = data
 
+            for column, line in enumerate(lines):
+                line.set_ydata(plotdata[:, column])
+            return lines
 
-    window_fft = fft(window)
+        # Define callback for playback
+        def callback(indata, outdata, frames, time, status):
+            if status:
+                print(status, file=sys.stderr)
 
-    plt.plot(window_fft)
-    plt.show(block=True)
+            plot = np.zeros((frames, 2))
 
-    print(window_fft)
+            output = np.zeros((frames, out_channels))
+            for i in range(frames):
+                output[i, out_channel - 1] = next(sine_wave)
+            outdata[:] = pack(output.flatten())
+
+            input = unpack(indata).reshape((frames, in_channels))
+            nonlocal magnitude
+            magnitude = np.abs(np.fft.fft(input[:, in_channel - 1], n=n))
+
+            plot[:, 0] = output[:, out_channel - 1]
+            plot[:, 1] = input[:, in_channel - 1]
+            q.put(plot)
+
+        stream = sd.RawStream(
+            samplerate=samplerate,
+            blocksize=chunk,
+            device=device_index,
+            channels=(in_channels, out_channels),
+            dtype="int24",
+            callback=callback,
+        )
+
+        ani = FuncAnimation(fig, update_plot, interval=200, blit=True)
+        with stream:
+            plt.show()
+            while True:
+                print("Magnitude: ", magnitude)
+                time.sleep(1.1)
+
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":
