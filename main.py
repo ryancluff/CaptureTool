@@ -1,8 +1,8 @@
 import argparse
 import json
 
-from src.capture import capture
-from src.calibrate import calibrate
+from capture_tool.capture import capture
+from capture_tool.calibrate import calibrate
 import settings
 
 
