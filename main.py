@@ -1,19 +1,33 @@
 import argparse
+import json
+
+from src.capture import capture
+from src.calibrate import calibrate
+import settings
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("mode", help="capture or calibrate")
-    args = parser.parse_args()
 
-    if args.mode == "capture":
-        from src.capture import run
-        run()
-    elif args.mode == "calibrate":
-        from src.calibrate import run
-        run()
-    else:
-        print("Invalid mode")
+    output_level = calibrate(
+        settings.device,
+        settings.output_channel,
+        settings.input_channels,
+        settings.target_dbu,
+        frequency=settings.frequency,
+        blocksize=settings.calibration_blocksize,
+        samplerate=settings.calibration_samplerate,
+    )
+
+    capture(
+        settings.device,
+        settings.output_channel,
+        settings.input_channels,
+        settings.reamp_file,
+        output_level,
+        blocksize=settings.capture_blocksize,
+    )
+
+    print("Capture complete")
 
 
 if __name__ == "__main__":
