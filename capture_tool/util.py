@@ -1,4 +1,5 @@
 import math
+from datetime import datetime
 
 import numpy as np
 
@@ -53,3 +54,7 @@ def dbu_to_v_rms(dbu: float) -> float:
 
 def calculate_channel_dbfs(input_max: np.array) -> np.array:
     return 20 * np.log10(input_max / (2 ** (24 - 1) - 1))
+
+def timestamp() -> str:
+    t = datetime.now()
+    return f"{t.year:04d}-{t.month:02d}-{t.day:02d}-{t.hour:02d}-{t.minute:02d}-{t.second:02d}"
