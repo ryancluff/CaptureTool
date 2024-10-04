@@ -1,0 +1,14 @@
+{
+    "device": 6,
+    "output_channel": 3,
+    "inputs_channels": [
+        "source",
+        "preamp",
+        "poweramp",
+        "di"
+    ],
+    "target_dbu": 6.0,
+    "frequency": 1000,
+    "blocksize": 480,
+    "samplerate": 48000
+}
