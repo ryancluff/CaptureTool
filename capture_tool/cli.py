@@ -5,6 +5,8 @@ from sounddevice import query_devices
 
 
 from capture_tool.util import timestamp
+from capture_tool.interface import Interface
+from capture_tool.capture import Capture
 # from capture_tool.capture import capture
 # from capture_tool.calibrate import calibrate
 
@@ -22,24 +24,11 @@ def _capture_tool(interface_config: dict, calibration_config: dict, capture_conf
         with open(Path(outdir, f"config_{basename}.json"), "w") as fp:
             json.dump(config, fp, indent=4)
 
-    output_level = calibrate(
-        settings.device,
-        settings.output_channel,
-        settings.input_channels,
-        settings.target_dbu,
-        frequency=settings.frequency,
-        blocksize=settings.calibration_blocksize,
-        samplerate=settings.calibration_samplerate,
-    )
+    interface = Interface(interface_config)
+    interface.calibrate()
 
-    capture(
-        settings.device,
-        settings.output_channel,
-        settings.input_channels,
-        settings.reamp_file,
-        output_level,
-        blocksize=settings.capture_blocksize,
-    )
+    capture = Capture(capture_config)
+    capture.run()
 
 
 def capture_tool():
