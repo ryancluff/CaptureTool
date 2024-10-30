@@ -1,7 +1,7 @@
 {
     "device": 6,
     "output_channel": 3,
-    "inputs_channels": [
+    "input_channels": [
         "source",
         "preamp",
         "poweramp",
