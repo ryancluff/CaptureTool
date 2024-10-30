@@ -16,10 +16,9 @@ class Capture:
 
     def get_total_time(self):
         return f"{(len(self.reamp_wav.data) // self.reamp_wav.rate) // 60:02d}:{(len(self.reamp_wav.data) // self.reamp_wav.rate) % 60:02d}"
-    
+
     def get_current_time(self, current_frame):
         return f"{(current_frame // self.reamp_wav.rate) // 60:02d}:{(current_frame // self.reamp_wav.rate) % 60:02d}"
-
 
     def run(self, interface: Interface):
         if interface.output_level is None:
@@ -76,7 +75,7 @@ class Capture:
 
             for i in range(len(interface.input_channels)):
                 name = interface.input_channels[i]
-                wavio.write(f"capture-{name}.wav", recording[:, i - 1], reamp_wav.rate, sampwidth=3)
+                wavio.write(f"capture-{name}.wav", recording[:, i - 1], self.reamp_wav.rate, sampwidth=3)
 
         except KeyboardInterrupt:
             pass
