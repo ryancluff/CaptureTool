@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Capture Tool",
+            "name": "Capture Tool start",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
@@ -13,6 +13,17 @@
                 "configs/interface/default.json",
                 "configs/capture/default.json",
                 "captures"
+            ]
+        },
+        {
+            "name": "Capture Tool list",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "list"
             ]
         }
     ]

@@ -31,7 +31,7 @@ def _capture_tool(interface_config: dict, capture_config: dict, outdir: Path):
 def cli():
     parser = ArgumentParser(description="Capture tool")
 
-    subparsers = parser.add_subparsers()
+    subparsers = parser.add_subparsers(dest="command")
 
     start_parser = subparsers.add_parser("start", help="Start new capture")
     start_parser.add_argument("interface_config_path", type=str)
@@ -41,20 +41,27 @@ def cli():
     resume_parser = subparsers.add_parser("resume", help="Resume previous capture")
     resume_parser.add_argument("resume_outdir", type=str)
 
+    subparsers.add_parser("list", help="List available devices")
+    
     args = parser.parse_args()
 
-    def ensure_outdir(outdir: str) -> Path:
-        outdir = Path(outdir, timestamp())
-        outdir.mkdir(parents=True, exist_ok=False)
-        return outdir
+    if args.command == "list":
+        print(query_devices())
+    elif args.command == "resume":
+        print("Not implemented")
+    elif args.command == "start":
+        def ensure_outdir(outdir: str) -> Path:
+            outdir = Path(outdir, timestamp())
+            outdir.mkdir(parents=True, exist_ok=False)
+            return outdir
 
-    outdir = ensure_outdir(args.outdir)
-    with open(args.interface_config_path, "r") as fp:
-        interface_config = json.load(fp)
-    with open(args.capture_config_path, "r") as fp:
-        capture_config = json.load(fp)
+        outdir = ensure_outdir(args.outdir)
+        with open(args.interface_config_path, "r") as fp:
+            interface_config = json.load(fp)
+        with open(args.capture_config_path, "r") as fp:
+            capture_config = json.load(fp)
 
-    _capture_tool(interface_config, capture_config, outdir)
+        _capture_tool(interface_config, capture_config, outdir)
 
 
 if __name__ == "__main__":
