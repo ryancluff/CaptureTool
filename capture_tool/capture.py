@@ -21,15 +21,15 @@ class Capture:
         return f"{(current_frame // self.reamp_wav.rate) // 60:02d}:{(current_frame // self.reamp_wav.rate) % 60:02d}"
 
     def run(self, interface: Interface):
-        if interface.output_level is None:
+        if interface._output_level is None:
             raise RuntimeError("Interface not calibrated")
 
         recording = np.zeros(
-            (len(self.reamp_wav.data) + 2 * self.blocksize, len(interface.input_channels)), dtype=np.int32
+            (len(self.reamp_wav.data) + 2 * self.blocksize, len(interface.channels["input"])), dtype=np.int32
         )
 
         current_frame = 0
-        input_max = np.zeros(len(interface.input_channels), dtype=np.int32)
+        input_max = np.zeros(len(interface.channels["input"]), dtype=np.int32)
         recording_done = threading.Event()
 
         def callback(indata, outdata, frames, time, status):
@@ -39,13 +39,13 @@ class Capture:
             nonlocal current_frame
             chunksize = min(len(self.reamp_wav.data) - current_frame, frames)
 
-            output = np.zeros((frames, interface.output_channel))
-            output[:chunksize, interface.output_channel - 1] = self.reamp_wav.data[
+            output = np.zeros((frames, interface.channels["output"]))
+            output[:chunksize, interface.channels["output"] - 1] = self.reamp_wav.data[
                 current_frame : current_frame + chunksize
             ].flatten()
             outdata[:] = pack(output)
 
-            input = unpack(indata, len(interface.input_channels))
+            input = unpack(indata, len(interface.channels["input"]))
 
             nonlocal input_max
             input_max[:] = np.max(np.abs(input), axis=0)
@@ -61,7 +61,7 @@ class Capture:
                 samplerate=self.reamp_wav.rate,
                 blocksize=self.blocksize,
                 device=interface.device,
-                channels=(len(interface.input_channels), interface.output_channel),
+                channels=(len(interface.channels["input"]), interface.channels["output"]),
                 dtype="int24",
                 callback=callback,
                 finished_callback=recording_done.set,
@@ -73,8 +73,8 @@ class Capture:
                     output_str = " | ".join(f"{dbu:3.2f}" for dbu in input_dbfs)
                     print(f"{self.get_current_time()} / {self.get_total_time()} - {output_str}")
 
-            for i in range(len(interface.input_channels)):
-                name = interface.input_channels[i]
+            for i in range(len(interface.channels["input"])):
+                name = interface.channels["input"][i]
                 wavio.write(f"capture-{name}.wav", recording[:, i - 1], self.reamp_wav.rate, sampwidth=3)
 
         except KeyboardInterrupt:

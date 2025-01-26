@@ -1,14 +1,18 @@
 {
     "device": 6,
-    "output_channel": 3,
-    "input_channels": [
-        "source",
-        "preamp",
-        "poweramp",
-        "di"
-    ],
+    "channels": {
+        "input": [
+            "source",
+            "preamp",
+            "poweramp",
+            "di"
+        ],
+        "reamp": 3,
+        "monitor": 1,
+        "passthrough": "source"
+    },
     "target_dbu": 6.0,
     "frequency": 1000,
-    "blocksize": 480,
+    "blocksize": 256,
     "samplerate": 48000
 }

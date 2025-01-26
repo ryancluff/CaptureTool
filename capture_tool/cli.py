@@ -1,4 +1,5 @@
 import json
+import os
 from argparse import ArgumentParser
 from pathlib import Path
 from sounddevice import query_devices
@@ -9,29 +10,22 @@ from capture_tool.interface import Interface
 from capture_tool.capture import Capture
 
 
-def _capture_tool(interface_config: dict, capture_config: dict, outdir: Path):
+def _save_configs(configs: dict, outdir: Path):
     if not outdir.exists():
         raise RuntimeError(f"No output location found at {outdir}")
 
-    # Write
-    for basename, config in (
-        ("interface", interface_config),
-        ("capture", capture_config),
-    ):
+    for basename, config in configs:
         with open(Path(outdir, f"config_{basename}.json"), "w") as fp:
             json.dump(config, fp, indent=4)
-
-    interface = Interface(interface_config)
-    interface.calibrate()
-
-    capture = Capture(capture_config)
-    capture.run(interface)
 
 
 def cli():
     parser = ArgumentParser(description="Capture tool")
 
     subparsers = parser.add_subparsers(dest="command")
+
+    calibrate_parser = subparsers.add_parser("calibrate", help="Calibrate interface")
+    calibrate_parser.add_argument("interface_config_path", type=str)
 
     start_parser = subparsers.add_parser("start", help="Start new capture")
     start_parser.add_argument("interface_config_path", type=str)
@@ -41,27 +35,47 @@ def cli():
     resume_parser = subparsers.add_parser("resume", help="Resume previous capture")
     resume_parser.add_argument("resume_outdir", type=str)
 
-    subparsers.add_parser("list", help="List available devices")
-    
+    passthrough_parser = subparsers.add_parser("passthrough", help="Passthrough instrument audio")
+    passthrough_parser.add_argument("interface_config_path", type=str)
+
+    subparsers.add_parser("list_devices", help="List available devices")
+
     args = parser.parse_args()
 
-    if args.command == "list":
+    configs = dict()
+
+    if args.command == "list_devices":
         print(query_devices())
-    elif args.command == "resume":
-        print("Not implemented")
+    elif args.command == "calibrate":
+        raise NotImplementedError("Calibrate not yet implemented")
     elif args.command == "start":
-        def ensure_outdir(outdir: str) -> Path:
-            outdir = Path(outdir, timestamp())
-            outdir.mkdir(parents=True, exist_ok=False)
-            return outdir
+        outdir = Path(args.outdir, timestamp())
+        outdir.mkdir(parents=True, exist_ok=False)
 
-        outdir = ensure_outdir(args.outdir)
         with open(args.interface_config_path, "r") as fp:
-            interface_config = json.load(fp)
+            configs["interface"] = json.load(fp)
         with open(args.capture_config_path, "r") as fp:
-            capture_config = json.load(fp)
+            configs["capture"] = json.load(fp)
 
-        _capture_tool(interface_config, capture_config, outdir)
+        _save_configs(configs, outdir)
+
+        interface = Interface(configs["interface"])
+        if interface._output_level is None:
+            interface.calibrate()
+
+        capture = Capture(configs["capture"])
+        capture.run(interface)
+    elif args.command == "resume":
+        raise NotImplementedError("Resume not yet implemented")
+    elif args.command == "passthrough":
+        with open(args.interface_config_path, "r") as fp:
+            configs["interface"] = json.load(fp)
+
+        interface = Interface(configs["interface"])
+        if interface._output_level is None:
+            interface.calibrate()
+
+        interface.passthrough()
 
 
 if __name__ == "__main__":
