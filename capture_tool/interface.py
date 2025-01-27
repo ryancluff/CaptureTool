@@ -59,6 +59,9 @@ class Interface:
         self._validate_config()
 
     def passthrough(self):
+        if self._output_level is None:
+            raise RuntimeError("Interface not calibrated")
+
         num_output_channels = max(self.channels["reamp"], self.channels["monitor"])
         num_input_channels = len(self.channels["input"])
 
