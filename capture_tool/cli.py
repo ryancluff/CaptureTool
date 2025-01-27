@@ -47,7 +47,11 @@ def cli():
     if args.command == "list_devices":
         print(query_devices())
     elif args.command == "calibrate":
-        raise NotImplementedError("Calibrate not yet implemented")
+        with open(args.interface_config_path, "r") as fp:
+            configs["interface"] = json.load(fp)
+
+        interface = Interface(configs["interface"])
+        interface.calibrate()
     elif args.command == "start":
         outdir = Path(args.outdir, timestamp())
         outdir.mkdir(parents=True, exist_ok=False)
@@ -56,14 +60,13 @@ def cli():
             configs["interface"] = json.load(fp)
         with open(args.capture_config_path, "r") as fp:
             configs["capture"] = json.load(fp)
-
         _save_configs(configs, outdir)
 
         interface = Interface(configs["interface"])
+        capture = Capture(configs["capture"])
         if interface._output_level is None:
             interface.calibrate()
 
-        capture = Capture(configs["capture"])
         capture.run(interface)
     elif args.command == "resume":
         raise NotImplementedError("Resume not yet implemented")
@@ -76,6 +79,9 @@ def cli():
             interface.calibrate()
 
         interface.passthrough()
+
+    print("done")
+    print("")
 
 
 if __name__ == "__main__":

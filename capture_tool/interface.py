@@ -4,7 +4,13 @@ import time
 import numpy as np
 import sounddevice as sd
 
-from capture_tool.audio import SineWave, pack, unpack, v_rms_to_dbu, calculate_channel_dbfs
+from capture_tool.audio import (
+    SineWave,
+    pack,
+    unpack,
+    v_rms_to_dbu,
+    calculate_channel_dbfs,
+)
 
 
 class Interface:
@@ -16,10 +22,10 @@ class Interface:
             raise ValueError("channels must be a dictionary")
 
         if not isinstance(self.target_dbu, float):
-            if not isinstance(self.target_dbu, int):
-                raise ValueError("target_dbu must be a number")
-            else:
+            if isinstance(self.target_dbu, int):
                 self.target_dbu = float(self.target_dbu)
+            else:
+                raise ValueError("target_dbu must be a number")
 
         if not isinstance(self.frequency, int):
             raise ValueError("frequency must be an integer")
@@ -29,12 +35,12 @@ class Interface:
 
         if not isinstance(self.blocksize, int):
             raise ValueError("blocksize must be an integer")
-        
-        if not isinstance(self._output_level, float):
-            if not isinstance(self._output_level, int):
-                raise ValueError("output_level must be a number")
-            else:
+
+        if self._output_level is not None and not isinstance(self._output_level, float):
+            if isinstance(self._output_level, int):
                 self._output_level = float(self._output_level)
+            else:
+                raise ValueError("output_level must be a number")
 
     def __init__(self, config: dict):
         # Interface configuration
@@ -121,7 +127,7 @@ class Interface:
         )
 
         with stream:
-            print("Calibration mode")
+            print("Calibration Mode")
             print("=" * 80)
             print("")
 
@@ -152,3 +158,9 @@ class Interface:
                     time.sleep(1)
             except KeyboardInterrupt:
                 print("")
+
+        print("calibration complete")
+        print("add the following line to your interface config to skip calibration")
+        print(f'"_output_level": {self._output_level:.2f}')
+        print("recalibrate following any setting or hardware changes")
+        print("")
