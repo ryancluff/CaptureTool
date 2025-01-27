@@ -2,6 +2,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Capture Tool calibrate",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "calibrate",
+                "configs/interface/default.json",
+            ]
+        },
+        {
             "name": "Capture Tool start",
             "type": "debugpy",
             "request": "launch",
@@ -16,14 +28,14 @@
             ]
         },
         {
-            "name": "Capture Tool list",
+            "name": "Capture Tool list_devices",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "list"
+                "list_devices"
             ]
         }
     ]
