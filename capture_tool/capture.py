@@ -21,7 +21,7 @@ class Capture:
         return f"{(current_frame // self.reamp_wav.rate) // 60:02d}:{(current_frame // self.reamp_wav.rate) % 60:02d}"
 
     def run(self, interface: Interface):
-        if interface._output_level is None:
+        if interface.reamp_dbu is None:
             raise RuntimeError("Interface not calibrated")
 
         recording = np.zeros(

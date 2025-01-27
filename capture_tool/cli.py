@@ -64,7 +64,7 @@ def cli():
 
         interface = Interface(configs["interface"])
         capture = Capture(configs["capture"])
-        if interface._output_level is None:
+        if interface.reamp_dbu is None:
             interface.calibrate()
 
         capture.run(interface)
@@ -75,7 +75,7 @@ def cli():
             configs["interface"] = json.load(fp)
 
         interface = Interface(configs["interface"])
-        if interface._output_level is None:
+        if interface.reamp_dbu is None:
             interface.calibrate()
 
         interface.passthrough()

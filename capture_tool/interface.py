@@ -14,6 +14,7 @@ from capture_tool.audio import (
 
 
 class Interface:
+    # TODO: Add more validation stuff
     def _validate_config(self):
         if not isinstance(self.device, int):
             raise ValueError("device must be an integer")
@@ -36,9 +37,9 @@ class Interface:
         if not isinstance(self.blocksize, int):
             raise ValueError("blocksize must be an integer")
 
-        if self._output_level is not None and not isinstance(self._output_level, float):
-            if isinstance(self._output_level, int):
-                self._output_level = float(self._output_level)
+        if self.reamp_dbu is not None and not isinstance(self.reamp_dbu, float):
+            if isinstance(self.reamp_dbu, int):
+                self.reamp_dbu = float(self.reamp_dbu)
             else:
                 raise ValueError("output_level must be a number")
 
@@ -54,12 +55,13 @@ class Interface:
         self.blocksize = config.get("blocksize", 256)
 
         # Interface calibration results
-        self._output_level = config.get("_output_level", None)
+        # reamp dBu measure at 0 dBFS
+        self.reamp_dbu = config.get("reamp_dbu", None)
 
         self._validate_config()
 
     def passthrough(self):
-        if self._output_level is None:
+        if self.reamp_dbu is None:
             raise RuntimeError("Interface not calibrated")
 
         num_output_channels = max(self.channels["reamp"], self.channels["monitor"])
@@ -135,18 +137,18 @@ class Interface:
             print("")
 
             reamp_v_rms = float(input(f"enter rms voltage: "))
-            reamp_dbu = v_rms_to_dbu(reamp_v_rms)
+            self.reamp_dbu = v_rms_to_dbu(reamp_v_rms)
 
-            self._output_level = self.target_dbu - reamp_dbu
-
-            sine_wave = SineWave(self.frequency, self.samplerate, self._output_level)
+            reamp_dbfs = self.target_dbu - self.reamp_dbu
+            sine_wave = SineWave(self.frequency, self.samplerate, reamp_dbfs)
             reamp_v_rms_verify = float(input("enter new rms voltage: "))
             reamp_dbu_verify = v_rms_to_dbu(reamp_v_rms_verify)
 
+            print("")
             print(f"reamp target level: {self.target_dbu:.2f} dBu")
-            print(f"measured reamp level @ 0 dBFS: {reamp_dbu:.2f} dBu")
-            print(f"calculated reamp level adjustment: {self._output_level:.2f} dB")
-            print(f"measured reamp level @ {self._output_level:.2f} dB: {reamp_dbu_verify:.2f} dBu")
+            print(f"measured reamp level @ 0 dBFS: {self.reamp_dbu:.2f} dBu")
+            print(f"calculated reamp level adjustment: {reamp_dbfs:.2f} dBFS")
+            print(f"measured reamp level @ {reamp_dbfs:.2f} dBFS: {reamp_dbu_verify:.2f} dBu")
             print("")
 
             print("verify reamp input and output levels")
@@ -164,6 +166,6 @@ class Interface:
 
         print("calibration complete")
         print("add the following line to your interface config to skip calibration")
-        print(f'"_output_level": {self._output_level:.2f}')
+        print(f'"reamp_dbu": {self.reamp_dbu:.2f}')
         print("recalibrate following any setting or hardware changes")
         print("")
