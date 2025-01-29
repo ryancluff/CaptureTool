@@ -15,96 +15,72 @@ def cli():
 
     subparsers.add_parser("list-interfaces")
 
-    session_parser = subparsers.add_parser("session")
-    session_parser.add_argument("interface_config_path", type=str)
-    session_parser.add_argument("device_config_path", type=str)
-
-    capture_parser = subparsers.add_parser("capture")
-    capture_parser.add_argument("session_path", type=str)
+    capture_parser = subparsers.add_parser("capture", help="Run a capture")
     capture_parser.add_argument("capture_config_path", type=str)
+    capture_parser.add_argument("interface_config_path", type=str)
+    capture_parser.add_argument("device_config_path", type=str, required=False)
 
     passthrough_parser = subparsers.add_parser("passthrough", help="Passthrough instrument audio")
-    passthrough_parser.add_argument("session_path", type=str)
+    passthrough_parser.add_argument("interface_config_path", type=str)
 
     args = parser.parse_args()
 
     if args.command == "list-interfaces":
         print(query_devices())
-    elif args.command == "session":
-        # Load interface and device configs
+    elif args.command == "capture":
+        # Load interface, capture, and (optionally) device configs
+        with open(args.capture_config_path, "r") as fp:
+            capture_config = json.load(fp)
         with open(args.interface_config_path, "r") as fp:
             interface_config = json.load(fp)
-        with open(args.device_config_path, "r") as fp:
-            device_config = json.load(fp)
+        if args.device_config_path is not None:
+            with open(args.device_config_path, "r") as fp:
+                device_config = json.load(fp)
 
         # Attach path args to each respective config
         interface_config["path"] = args.interface_config_path
         device_config["path"] = args.device_config_path
 
-        # Create sessions directory if it doesn't already exist
-        sessions_dir = Path("sessions")
-        sessions_dir.mkdir(exist_ok=True)
-
-        # Validate the interface config and then run calibration
-        interface = Interface(interface_config)
-        # interface.calibrate()
-
-        # Create a directory for the new session
-        # Uses a timestamp for the directory name
-        session_dir = Path(sessions_dir, timestamp())
-        session_dir.mkdir(exist_ok=False)
-
-        # Save the interface and device config to the session directory
-        with open(Path(session_dir, "interface.json"), "w") as fp:
-            json.dump(interface_config, fp, indent=4)
-        with open(Path(session_dir, "device.json"), "w") as fp:
-            json.dump(device_config, fp, indent=4)
-    elif args.command == "capture":
-        # Load interface, device, and capture configs
-        with open(Path(args.session_path, "interface.json"), "r") as fp:
-            interface_config = json.load(fp)
-        with open(Path(args.session_path, "device.json"), "r") as fp:
-            device_config = json.load(fp)
-        with open(args.capture_config_path, "r") as fp:
-            capture_config = json.load(fp)
-
-        # Attach path arg to capture config
-        capture_config["path"] = args.capture_config_path
-
         # Create captures directory if it doesn't already exist
-        captures_dir = Path(args.session_path, "captures")
+        captures_dir = Path("captures")
         captures_dir.mkdir(exist_ok=True)
 
         # Validate the interface and capture configs
         interface = Interface(interface_config)
         capture = Capture(capture_config)
 
-        # Create a directory for the new capture with the session directory
+        # Run calibration if needed
+        if interface.reamp_dbu is None:
+            interface_config["reamp_dbu"] = interface.calibrate()
+
+        # Create a directory for the new capture
+        # Uses a timestamp for the directory name
         capture_dir = Path(captures_dir, timestamp())
         capture_dir.mkdir(exist_ok=False)
 
-        # Save the interface, device, and capture configs to the capture directory
-        with open(Path(captures_dir, "interface.json"), "w") as fp:
-            json.dump(interface_config, fp, indent=4)
-        with open(Path(captures_dir, "device.json"), "w") as fp:
-            json.dump(device_config, fp, indent=4)
-        with open(Path(captures_dir, "capture.json"), "w") as fp:
+        # Save interface, capture, and (optionally) device configs
+        with open(Path(capture_dir, "capture.json"), "w") as fp:
             json.dump(capture_config, fp, indent=4)
+        with open(Path(capture_dir, "interface.json"), "w") as fp:
+            json.dump(interface_config, fp, indent=4)
+        with open(Path(capture_dir, "device.json"), "w") as fp:
+            json.dump(device_config, fp, indent=4)
 
         # Run the capture and save to the capture directory
         capture.run(interface, Path(capture_dir, "recording.wav"))
-
-    elif args.command == "resume":
-        raise NotImplementedError("Resume not yet implemented")
     elif args.command == "passthrough":
+        # Load interface config
         with open(Path(args.session_path, "interface.json"), "r") as fp:
             interface_config = json.load(fp)
 
+        # Validate the interface config
         interface = Interface(interface_config)
 
+        # Run calibration if needed
         if interface.reamp_dbu is None:
             raise RuntimeError("Interface not calibrated")
 
+        # Pass instrument audio from an input to the reamp output
         interface.passthrough()
 
     else:
