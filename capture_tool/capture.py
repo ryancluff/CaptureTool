@@ -1,3 +1,4 @@
+from pathlib import Path
 import sys
 import threading
 import wavio
@@ -20,7 +21,7 @@ class Capture:
     def get_current_time(self, current_frame):
         return f"{(current_frame // self.reamp_wav.rate) // 60:02d}:{(current_frame // self.reamp_wav.rate) % 60:02d}"
 
-    def run(self, interface: Interface):
+    def run(self, interface: Interface, output_path: Path):
         if interface.reamp_dbu is None:
             raise RuntimeError("Interface not calibrated")
 
@@ -73,9 +74,7 @@ class Capture:
                     output_str = " | ".join(f"{dbu:3.2f}" for dbu in input_dbfs)
                     print(f"{self.get_current_time()} / {self.get_total_time()} - {output_str}")
 
-            for i in range(len(interface.channels["input"])):
-                name = interface.channels["input"][i]
-                wavio.write(f"capture-{name}.wav", recording[:, i - 1], self.reamp_wav.rate, sampwidth=3)
+            wavio.write(output_path, recording, self.reamp_wav.rate, sampwidth=3)
 
         except KeyboardInterrupt:
             pass
