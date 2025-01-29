@@ -2,33 +2,18 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "interface list",
+            "name": "list-interfaces",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "interface",
-                "list"
+                "list-interfaces"
             ]
         },
         {
-            "name": "session new",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/main.py",
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "args": [
-                "session",
-                "new",
-                "configs/interface/default.json",
-                "configs/device/default.json"
-            ]
-        },
-        {
-            "name": "capture new",
+            "name": "capture",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
@@ -36,10 +21,10 @@
             "justMyCode": false,
             "args": [
                 "capture",
-                "new",
-                "sessions/2025-01-28-20-38-45",
-                "configs/capture/default.json"
+                "configs/capture/default.json",
+                "configs/interface/default.json",
+                "configs/device/default.json"
             ]
-        },
+        }
     ]
 }
