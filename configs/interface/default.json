@@ -3,16 +3,16 @@
     "channels": {
         "input": [
             "source",
-            "preamp",
-            "poweramp",
+            "loop",
+            "main",
             "di"
         ],
         "reamp": 3,
         "monitor": 1,
         "passthrough": "source"
     },
-    "target_dbu": 6.0,
-    "frequency": 1000,
-    "blocksize": 256,
+    "target_dbu": 3.0,
+    "frequency": 400,
+    "blocksize": 512,
     "samplerate": 48000
 }
