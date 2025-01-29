@@ -1,0 +1,20 @@
+{
+    "name": "Gallien-Krueger Goldline 500",
+    "gear_make": "Gallien-Krueger",
+    "gear_model": "Goldline 500",
+    "gear_type": "Bass Amp",
+    "parameter_labels": [
+        "gain",
+        "contour",
+        "treble",
+        "hi-mid",
+        "low-mid",
+        "bass",
+        "boost",
+        "master-b",
+        "master-a"
+    ],
+    "switch_labels": [
+        "a/b"
+    ]
+}
