@@ -90,10 +90,8 @@ def cli():
             captures_dir = Path(args.session_path, "captures")
             captures_dir.mkdir(exist_ok=True)
 
-
-
             interface = Interface(interface_config)
-            capture = Capture(capture_config, capture_dir)
+            capture = Capture(capture_config)
 
             capture_dir = Path(captures_dir, timestamp())
             capture_dir.mkdir(exist_ok=False)
@@ -107,7 +105,7 @@ def cli():
 
             if interface.reamp_dbu is None:
                 raise RuntimeError("Interface not calibrated")
-            capture.run()
+            capture.run(interface, Path(capture_dir, "recording.wav"))
         else:
             raise NotImplementedError(f"capture subcommand {args.capture_subcommand} not implemented")
     elif args.command == "resume":
