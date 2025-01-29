@@ -5,18 +5,9 @@ from pathlib import Path
 from sounddevice import query_devices
 
 
-from capture_tool.util import timestamp
-from capture_tool.interface import Interface
 from capture_tool.capture import Capture
-
-
-def _save_configs(configs: dict, outdir: Path):
-    if not outdir.exists():
-        raise RuntimeError(f"No output location found at {outdir}")
-
-    for basename, config in configs:
-        with open(Path(outdir, f"config_{basename}.json"), "w") as fp:
-            json.dump(config, fp, indent=4)
+from capture_tool.interface import Interface
+from capture_tool.util import timestamp
 
 
 def cli():
