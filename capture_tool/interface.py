@@ -18,7 +18,6 @@ class Interface:
     def _validate_config(self):
         if not isinstance(self.device, int):
             raise ValueError("device must be an integer")
-
         if not isinstance(self.channels, dict):
             raise ValueError("channels must be a dictionary")
 
@@ -27,13 +26,10 @@ class Interface:
                 self.target_dbu = float(self.target_dbu)
             else:
                 raise ValueError("target_dbu must be a number")
-
         if not isinstance(self.frequency, int):
             raise ValueError("frequency must be an integer")
-
         if not isinstance(self.samplerate, int):
             raise ValueError("samplerate must be an integer")
-
         if not isinstance(self.blocksize, int):
             raise ValueError("blocksize must be an integer")
 
@@ -151,7 +147,8 @@ class Interface:
             print(f"measured reamp level @ {reamp_dbfs:.2f} dBFS: {reamp_dbu_verify:.2f} dBu")
             print("")
 
-            print("verify reamp input and output levels")
+            print("verify reamp output and set input levels")
+            print()
             print("press Ctrl+C to exit")
             print("")
 
@@ -165,7 +162,10 @@ class Interface:
                 print("")
 
         print("calibration complete")
-        print("add the following line to your interface config to skip calibration")
-        print(f'"reamp_dbu": {self.reamp_dbu:.2f}')
+        print("add the following lines to your interface config to skip calibration")
+        print("")
+        print(f'"reamp_dbu": {self.reamp_dbu:.2f},')
+        print(f'"input_dbfs": []')
+
         print("recalibrate following any setting or hardware changes")
         print("")
