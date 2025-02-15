@@ -51,5 +51,16 @@ def dbu_to_v_rms(dbu: float) -> float:
     return 0.7746 * 10 ** (dbu / 20)
 
 
-def calculate_channel_dbfs(input_max: np.array) -> np.array:
+# Convert dBu to dBFS
+def dbu_to_dbfs(dbu: float, delta: float) -> float:
+    return dbu - delta
+
+
+# Convert dBFS to dBu
+def dbfs_to_dbu(dbfs: float, delta: float) -> float:
+    return dbfs + delta
+
+
+# Convert 24 bit audio data to dBFS
+def int_to_dbfs(input_max: np.array) -> np.array:
     return 20 * np.log10(input_max / (2 ** (24 - 1) - 1))
