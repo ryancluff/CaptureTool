@@ -13,7 +13,7 @@
             ]
         },
         {
-            "name": "capture",
+            "name": "capture w/ device",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
@@ -24,6 +24,19 @@
                 "configs/capture/default.json",
                 "configs/interface/default.json",
                 "configs/device/default.json"
+            ]
+        },
+        {
+            "name": "capture w/o device",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "capture",
+                "configs/capture/default.json",
+                "configs/interface/default.json"
             ]
         }
     ]
