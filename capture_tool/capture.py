@@ -16,12 +16,14 @@ class Capture:
         self.reamp_file = config["reamp_file"]
 
     def get_total_time(self, reamp_wav):
-        return f"{(len(reamp_wav.data) // reamp_wav.rate) // 60:02d}:{(len(reamp_wav.data) // reamp_wav.rate) % 60:02d}"
+        return (
+            f"{(len(reamp_wav.data) // reamp_wav.rate) // 60:02d}:{(len(reamp_wav.data) // reamp_wav.rate) % 60:02d}"
+        )
 
     def get_current_time(self, current_frame, reamp_wav):
         return f"{(current_frame // reamp_wav.rate) // 60:02d}:{(current_frame // reamp_wav.rate) % 60:02d}"
 
-    def run(self, interface: Interface, output_path: Path):
+    def run(self, interface: Interface, capture_dir: Path):
         if interface.reamp_delta is None:
             raise RuntimeError("Interface not calibrated")
 
@@ -34,7 +36,7 @@ class Capture:
         recording = np.zeros((len(reamp_wav_adjusted) + 2 * self.blocksize, num_input_channels), dtype=np.int32)
 
         current_frame = 0
-        input_max = np.zeros(num_input_channels, dtype=np.int32)
+        input_level = np.zeros(num_input_channels, dtype=np.int32)
         recording_done = threading.Event()
 
         def callback(indata, outdata, frames, time, status):
@@ -52,8 +54,8 @@ class Capture:
 
             input = unpack(indata, num_input_channels)
 
-            nonlocal input_max
-            input_max[:] = np.max(np.abs(input), axis=0)
+            nonlocal input_level
+            input_level[:] = np.max(np.abs(input), axis=0)
 
             recording[current_frame : current_frame + frames] = input
 
@@ -72,13 +74,21 @@ class Capture:
                 finished_callback=recording_done.set,
             )
 
+            input_max = np.zeros(num_input_channels, dtype=np.int32)
             with stream:
                 while not recording_done.wait(timeout=1.0):
-                    input_dbfs = int_to_dbfs(input_max)
-                    output_str = " | ".join(f"{dbu:3.2f}" for dbu in input_dbfs)
-                    print(f"{self.get_current_time(current_frame, reamp_wav)} / {self.get_total_time(reamp_wav)} - {output_str}          ")
+                    for i in range(num_input_channels):
+                        if input_level[i] > input_max[i]:
+                            input_max[i] = input_level[i]
+                    input_max_dbfs = int_to_dbfs(input_max)
+                    output_str = " | ".join(f"{dbu:3.2f}" for dbu in input_max_dbfs)
+                    print(
+                        f"{self.get_current_time(current_frame, reamp_wav)} / {self.get_total_time(reamp_wav)} - {output_str}          "
+                    )
 
-            wavio.write(str(output_path), recording, reamp_wav.rate, sampwidth=3)
+            for i in range(interface.channels["input"]):
+                channel = interface.channels["input"][i]
+                wavio.write(str(Path(capture_dir, f"recording-{channel}.wav")), recording[:, i], reamp_wav.rate, sampwidth=3)
 
         except KeyboardInterrupt:
             pass
