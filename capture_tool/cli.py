@@ -1,7 +1,7 @@
 import json
 from argparse import ArgumentParser
 from pathlib import Path
-from sounddevice import query_devices
+import sounddevice as sd
 
 from capture_tool.capture import Capture
 from capture_tool.interface import Interface
@@ -13,7 +13,8 @@ def cli():
 
     subparsers = parser.add_subparsers(dest="command")
 
-    subparsers.add_parser("list-interfaces")
+    list_parser = subparsers.add_parser("list-interfaces")
+    list_parser.add_argument("--interface", type=int, required=False)
 
     capture_parser = subparsers.add_parser("capture", help="Run a capture")
     capture_parser.add_argument("capture_config_path", type=str)
@@ -26,7 +27,23 @@ def cli():
     args = parser.parse_args()
 
     if args.command == "list-interfaces":
-        print(query_devices())
+        if args.interface is not None:
+            print(sd.query_devices(args.interface))
+            print("")
+
+            samplerates = 32000, 44100, 48000, 88200, 96000, 128000, 192000
+
+            supported_samplerates = []
+            for fs in samplerates:
+                try:
+                    sd.check_output_settings(device=args.interface, samplerate=fs)
+                except Exception as e:
+                    print(fs, e)
+                else:
+                    supported_samplerates.append(fs)
+            print("supported samplerates: " + str(supported_samplerates))
+        else:
+            print(sd.query_devices())
     elif args.command == "capture":
         # Load configs and attach path args to each respective config
         with open(args.capture_config_path, "r") as fp:
@@ -48,9 +65,10 @@ def cli():
         interface = Interface(interface_config)
         capture = Capture(capture_config)
 
-        # Run calibration if needed
-        if interface.reamp_delta is None:
-            interface_config["reamp_delta"], interface_config["input_delta"] = interface.calibrate()
+        interface_config["reamp_delta"] = interface.calibrate()
+
+        input("Press enter to start capture...")
+        print("")
 
         # Create a directory for the new capture
         # Uses a timestamp for the directory name
@@ -67,7 +85,7 @@ def cli():
                 json.dump(device_config, fp, indent=4)
 
         # Run the capture and save to the capture directory
-        capture.run(interface, Path(capture_dir, "recording.wav"))
+        capture.run(interface, capture_dir)
     elif args.command == "passthrough":
         # Load interface config
         with open(Path(args.session_path, "interface.json"), "r") as fp:
@@ -77,8 +95,8 @@ def cli():
         interface = Interface(interface_config)
 
         # Run calibration if needed
-        if interface.reamp_delta is None or interface.input_delta is None:
-            interface_config["reamp_delta"], interface_config["input_delta"] = interface.calibrate()
+        if interface.reamp_delta is None:
+            interface_config["reamp_delta"]= interface.calibrate()
 
         # Pass instrument audio from an input to the reamp output
         interface.passthrough()
