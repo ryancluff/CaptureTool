@@ -13,6 +13,19 @@
             ]
         },
         {
+            "name": "list-interfaces --interface 10",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "list-interfaces",
+                "--interface",
+                "10"
+            ]
+        },
+        {
             "name": "capture w/ device",
             "type": "debugpy",
             "request": "launch",
@@ -23,6 +36,7 @@
                 "capture",
                 "configs/capture/default.json",
                 "configs/interface/default.json",
+                "--device_config_path",
                 "configs/device/default.json"
             ]
         },
