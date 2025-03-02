@@ -3,6 +3,7 @@ import sys
 import threading
 import wavio
 
+import matplotlib.pyplot as plt
 import numpy as np
 import sounddevice as sd
 
@@ -11,84 +12,186 @@ from capture_tool.audio import pack, unpack, int_to_dbfs
 
 
 class Capture:
-    def __init__(self, config: dict):
-        self.blocksize = config["blocksize"]
-        self.reamp_file = config["reamp_file"]
+    def __init__(
+        self,
+        interface: Interface,
+        input_wav: wavio.Wav,
+    ):
+        self.interface = interface
+        self.input_wav = input_wav
 
-    def get_total_time(self, reamp_wav):
+    def _get_total_time(self, reamp_wav: wavio.Wav) -> str:
         return (
             f"{(len(reamp_wav.data) // reamp_wav.rate) // 60:02d}:{(len(reamp_wav.data) // reamp_wav.rate) % 60:02d}"
         )
 
-    def get_current_time(self, current_frame, reamp_wav):
+    def _get_current_time(self, current_frame: int, reamp_wav: wavio.Wav) -> str:
         return f"{(current_frame // reamp_wav.rate) // 60:02d}:{(current_frame // reamp_wav.rate) % 60:02d}"
 
-    def run(self, interface: Interface, capture_dir: Path):
-        if interface.reamp_delta is None:
-            raise RuntimeError("Interface not calibrated")
+    def _calculate_latency(
+        self,
+        reamp_data: np.ndarray,
+        raw_recording: np.ndarray,
+        cc_len: int = 5,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        channel_delays = np.zeros(self.interface.num_input_channels, dtype=np.int32)
+        channel_inversions = np.zeros(self.interface.num_input_channels, dtype=np.bool)
 
-        reamp_wav = wavio.read(self.reamp_file)
-        reamp_wav_adjusted = reamp_wav.data * 10 ** ((0 - interface.reamp_delta) / 20)
+        # trim input and output data for cross correlation
+        reamp_short = reamp_data[: self.input_wav.rate * cc_len, 0]
+        recording_short = raw_recording[: self.input_wav.rate * cc_len, :]
 
-        num_output_channels = interface.channels["reamp"]
-        num_input_channels = len(interface.channels["input"])
+        # normalize data to -1 to 1 to prevent overflow in cross correlation
+        reamp_short = reamp_short / np.max(np.abs(reamp_short))
+        for i in range(self.interface.num_input_channels):
+            output_data_short_normalized = recording_short[:, i] / np.max(np.abs(recording_short[:, i]))
 
-        recording = np.zeros((len(reamp_wav_adjusted) + 2 * self.blocksize, num_input_channels), dtype=np.int32)
+            # calculate cross correlation for each channel
+            # if the maximum cross correlation is negative, invert the channel
+            cross_corr = np.correlate(reamp_short, output_data_short_normalized, mode="full")
+            max_cc = np.argmax(cross_corr)
+            min_cc = np.argmin(cross_corr)
+            if np.abs(cross_corr[max_cc]) < np.abs(cross_corr[min_cc]):
+                max_cc = min_cc
+                channel_inversions[i] = True
+            channel_delays[i] = len(recording_short) - max_cc - 1 - 1
+        return channel_delays, channel_inversions
+
+    def _process_recordings(
+        self,
+        reamp_audio: np.ndarray,
+        raw_recording: np.ndarray,
+        channel_delays: np.ndarray,
+        channel_inversions: np.ndarray,
+        correct_audio_inversions: bool = True,
+        correct_base_latency: bool = True,
+        correct_individual_latency: bool = False,
+    ) -> np.ndarray:
+        processed_recording = np.zeros_like(raw_recording)
+
+        # apply the calculated delays to the recording data
+        if correct_individual_latency:
+            for i in range(self.interface.num_input_channels):
+                processed_recording[: -channel_delays[0], i] = raw_recording[channel_delays[0] :, i]
+        elif correct_base_latency:
+            for i in range(self.interface.num_input_channels):
+                processed_recording[: -channel_delays[i], i] = raw_recording[channel_delays[i] :, i]
+        else:
+            processed_recording[:, :] = raw_recording[:, :]
+
+        # invert the recording data if necessary
+        if correct_audio_inversions:
+            for i in range(self.interface.num_input_channels):
+                if channel_inversions[i]:
+                    print("detected signal inversion on channel {i}, correcting", i)
+                    processed_recording[:, i] *= -1
+
+        # trim the recording data to the length of the reamp data
+        processed_recording = processed_recording[: len(reamp_audio), :]
+
+        return processed_recording
+
+    def run(
+        self,
+        plot_latency: bool = False,
+        correct_audio_inversions: bool = True,
+        correct_base_latency: bool = True,
+        correct_individual_latency: bool = False,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        if self.interface.reamp_delta is None:
+            raise RuntimeError("reamp not calibrated. exitting...")
+
+        # scale the reamp data using the reamp delta to output at the proper level
+        reamp_audio = np.array(self.input_wav.data * 10 ** ((0 - self.interface.reamp_delta) / 20), dtype=np.int32)
+        # append 10 blocks of zeros to the end of the input data to account for latency
+        raw_recording = np.zeros(
+            (len(reamp_audio) + 10 * self.interface.blocksize, self.interface.num_input_channels), dtype=np.int32
+        )
 
         current_frame = 0
-        input_level = np.zeros(num_input_channels, dtype=np.int32)
+        recording_levels = np.zeros(self.interface.num_input_channels, dtype=np.int32)
         recording_done = threading.Event()
 
         def callback(indata, outdata, frames, time, status):
             if status:
                 print(status, file=sys.stderr)
 
+            nonlocal recording_levels
             nonlocal current_frame
-            chunksize = min(len(reamp_wav_adjusted) - current_frame, frames)
+            chunksize = min(len(reamp_audio) - current_frame, frames)
 
-            output = np.zeros((frames, num_output_channels))
-            output[:chunksize, interface.channels["reamp"] - 1] = reamp_wav_adjusted[
+            # write the reamp data to the interface output channel
+            output = np.zeros((frames, self.interface.num_output_channels))
+            output[:chunksize, self.interface.channels["reamp"] - 1] = reamp_audio[
                 current_frame : current_frame + chunksize
             ].flatten()
             outdata[:] = pack(output)
 
-            input = unpack(indata, num_input_channels)
+            # read the recording data from the interface input channels
+            input = unpack(indata, self.interface.num_input_channels)
+            raw_recording[current_frame : current_frame + frames] = input
 
-            nonlocal input_level
-            input_level[:] = np.max(np.abs(input), axis=0)
-
-            recording[current_frame : current_frame + frames] = input
-
+            recording_levels[:] = np.max(np.abs(input), axis=0)
             current_frame += frames
-            if current_frame >= len(reamp_wav_adjusted):
+            if current_frame >= len(reamp_audio):
                 raise sd.CallbackStop()
 
-        try:
-            stream = sd.RawStream(
-                samplerate=reamp_wav.rate,
-                blocksize=self.blocksize,
-                device=interface.device,
-                channels=(num_input_channels, num_output_channels),
-                dtype="int24",
-                callback=callback,
-                finished_callback=recording_done.set,
-            )
+        stream = sd.RawStream(
+            samplerate=self.input_wav.rate,
+            blocksize=self.interface.blocksize,
+            device=self.interface.device,
+            channels=(self.interface.num_input_channels, self.interface.num_output_channels),
+            dtype="int24",
+            callback=callback,
+            finished_callback=recording_done.set,
+        )
 
-            input_max = np.zeros(num_input_channels, dtype=np.int32)
-            with stream:
-                while not recording_done.wait(timeout=1.0):
-                    for i in range(num_input_channels):
-                        if input_level[i] > input_max[i]:
-                            input_max[i] = input_level[i]
-                    input_max_dbfs = int_to_dbfs(input_max)
-                    output_str = " | ".join(f"{dbu:3.2f}" for dbu in input_max_dbfs)
-                    print(
-                        f"{self.get_current_time(current_frame, reamp_wav)} / {self.get_total_time(reamp_wav)} - {output_str}          "
-                    )
+        peak_levels = np.zeros(self.interface.num_input_channels, dtype=np.int32)
+        with stream:
+            while not recording_done.wait(timeout=1.0):
+                for i in range(self.interface.num_input_channels):
+                    if recording_levels[i] > peak_levels[i]:
+                        peak_levels[i] = recording_levels[i]
+                peak_dbfs = int_to_dbfs(peak_levels)
+                output_str = " | ".join(f"{dbu:3.2f}" for dbu in peak_dbfs)
+                print(
+                    f"{self._get_current_time(current_frame, self.input_wav)} / {self._get_total_time(self.input_wav)} - {output_str}          "
+                )
 
-            for i in range(interface.channels["input"]):
-                channel = interface.channels["input"][i]
-                wavio.write(str(Path(capture_dir, f"recording-{channel}.wav")), recording[:, i], reamp_wav.rate, sampwidth=3)
+        channel_delays, channel_inversions = self._calculate_latency(reamp_audio, raw_recording)
 
-        except KeyboardInterrupt:
-            pass
+        processed_recording = self._process_recordings(
+            reamp_audio,
+            raw_recording,
+            channel_delays,
+            channel_inversions,
+            correct_audio_inversions,
+            correct_base_latency,
+            correct_individual_latency,
+        )
+
+        if plot_latency:
+            for i in range(self.interface.num_input_channels):
+                samples = self.input_wav.rate * 5
+                plt.figure(figsize=(16, 5))
+                plt.plot(
+                    reamp_audio[:samples] / np.max(reamp_audio[:samples]),
+                    label="reamp",
+                )
+                plt.plot(
+                    raw_recording[:samples, i] / np.max(raw_recording[:samples, i]),
+                    linestyle="--",
+                    label="raw recording",
+                )
+                plt.plot(
+                    processed_recording[:samples, i] / np.max(processed_recording[:samples, i]),
+                    linestyle="-.",
+                    label="processed recording",
+                )
+                plt.title(
+                    f"channel={i} | base delay={channel_delays[0]} | channel_delay={channel_delays[i]} | invert={channel_inversions[i]}"
+                )
+                plt.legend()
+                plt.show(block=True)
+
+        return raw_recording, processed_recording

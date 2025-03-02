@@ -16,35 +16,12 @@ from capture_tool.audio import (
 
 
 class Interface:
-    # TODO: Add more validation stuff
-    def _validate_config(self):
-        if not isinstance(self.device, int):
-            raise ValueError("device must be an integer")
-        if not isinstance(self.channels, dict):
-            raise ValueError("channels must be a dictionary")
-
-        if not isinstance(self.target_dbu, float):
-            if isinstance(self.target_dbu, int):
-                self.target_dbu = float(self.target_dbu)
-            else:
-                raise ValueError("target_dbu must be a number")
-        if not isinstance(self.frequency, int):
-            raise ValueError("frequency must be an integer")
-        if not isinstance(self.samplerate, int):
-            raise ValueError("samplerate must be an integer")
-        if not isinstance(self.blocksize, int):
-            raise ValueError("blocksize must be an integer")
-
-        if self.reamp_delta is not None and not isinstance(self.reamp_delta, float):
-            if isinstance(self.reamp_delta, int):
-                self.reamp_delta = float(self.reamp_delta)
-            else:
-                raise ValueError("reamp_delta must be a number")
-
     def __init__(self, config: dict):
         # Interface configuration
         self.device = config.get("device", sd.default.device)
         self.channels = config.get("channels", {})
+        self.num_output_channels = self.channels["reamp"]
+        self.num_input_channels = len(self.channels["input"])
 
         # Interface settings
         self.samplerate = config.get("samplerate", sd.default.samplerate)
@@ -59,35 +36,29 @@ class Interface:
         # (dbu - dbfs = delta)
         self.reamp_delta = config.get("reamp_delta", None)
 
-        self._validate_config()
-
-    def passthrough(self):
-        if self.reamp_delta is None:
-            raise RuntimeError("Interface not calibrated")
-
-        num_output_channels = max(self.channels["reamp"], self.channels["monitor"])
+    def calibrate_reamp(
+        self,
+        init_dbfs=0.0,
+    ):
+        num_output_channels = self.channels["reamp"]
         num_input_channels = len(self.channels["input"])
 
-        output_channel = self.channels["reamp"]
-        passthrough_channel = None
-        for i in self.channels["input"]:
-            if i == self.channels["passthrough"]:
-                passthrough_channel = i
-                break
-        if passthrough_channel is None:
-            raise ValueError("passthrough channel not found in input channels")
-
-        output_scalar = 10 ** (self.reamp_delta - self.input_delta[passthrough_channel - 1] / 20.0)
+        sine_wave = SineWave(self.frequency, self.samplerate, init_dbfs)
+        input_max = np.zeros(num_input_channels, dtype=np.int32)
 
         def callback(indata, outdata, frames, time, status):
             if status:
                 print(status, file=sys.stderr)
 
-            nonlocal output_channel
-            input = unpack(indata, num_input_channels)
             output = np.zeros((frames, num_output_channels), dtype=np.int32)
-            output[:, output_channel] = np.multiply(input[:, passthrough_channel - 1], output_scalar)
+            for i in range(frames):
+                output[i, self.channels["reamp"] - 1] = next(sine_wave)
             outdata[:] = pack(output)
+
+            input = unpack(indata, num_input_channels)
+
+            nonlocal input_max
+            input_max[:] = np.max(np.abs(input), axis=0)
 
         stream = sd.RawStream(
             samplerate=self.samplerate,
@@ -99,80 +70,16 @@ class Interface:
         )
 
         with stream:
-            print("Passthrough mode")
-            print("=" * 80)
-            print("")
+            reamp_v_rms = float(input(f"enter measured rms voltage: "))
+            reamp_dbu = v_rms_to_dbu(reamp_v_rms)
+            self.reamp_delta = reamp_dbu - init_dbfs
+            target_dbfs = dbu_to_dbfs(self.target_dbu, self.reamp_delta)
 
-            user_input = ""
-            while user_input != "q":
-                user_input = input("enter 1 for reamp, 2 for monitor, or 'q' to quit: ")
-                if user_input == "1":
-                    output_channel = self.channels["reamp"]
-                elif user_input == "2":
-                    output_channel = self.channels["monitor"]
-
-    def calibrate(self):
-        print("calibrating...")
-        print()
-
-        if self.reamp_delta is None:
-            num_output_channels = self.channels["reamp"]
-            num_input_channels = len(self.channels["input"])
-
-            init_dbfs = 0.0
-            sine_wave = SineWave(self.frequency, self.samplerate, init_dbfs)
-            input_max = np.zeros(num_input_channels, dtype=np.int32)
-
-            def callback(indata, outdata, frames, time, status):
-                if status:
-                    print(status, file=sys.stderr)
-
-                output = np.zeros((frames, num_output_channels), dtype=np.int32)
-                for i in range(frames):
-                    output[i, self.channels["reamp"] - 1] = next(sine_wave)
-                outdata[:] = pack(output)
-
-                input = unpack(indata, num_input_channels)
-
-                nonlocal input_max
-                input_max[:] = np.max(np.abs(input), axis=0)
-
-            stream = sd.RawStream(
-                samplerate=self.samplerate,
-                blocksize=self.blocksize,
-                device=self.device,
-                channels=(num_input_channels, num_output_channels),
-                dtype="int24",
-                callback=callback,
-            )
-
-            with stream:
-                reamp_v_rms = float(input(f"enter measured rms voltage: "))
+            while reamp_dbu - self.target_dbu > 0.001:
+                sine_wave = SineWave(self.frequency, self.samplerate, target_dbfs)
+                reamp_v_rms = float(input("enter new rms voltage: "))
                 reamp_dbu = v_rms_to_dbu(reamp_v_rms)
                 self.reamp_delta = reamp_dbu - init_dbfs
                 target_dbfs = dbu_to_dbfs(self.target_dbu, self.reamp_delta)
-                sine_wave = SineWave(self.frequency, self.samplerate, target_dbfs)
-
-                reamp_v_rms_verify = float(input("enter new rms voltage: "))
-                reamp_dbu_verify = v_rms_to_dbu(reamp_v_rms_verify)
-                reamp_dbfs_verify = dbu_to_dbfs(reamp_dbu_verify, self.reamp_delta)
-
-                print()
-                print(f"target reamp level: {self.target_dbu:.2f} dBu")
-                print(f"measured reamp level @ {init_dbfs:.2f} dBFS: {reamp_dbu:.2f} dBu")
-                print(f"measured reamp level @ {target_dbfs:.2f} dBFS: {reamp_dbu_verify:.2f} dBu")
-                print(f"calculated input delta (dbu - dbfs): {self.reamp_delta:.2f}")
-        else:
-            print("reamp calibration not required")
-            print(f"configured input delta (dbu - dbfs): {self.reamp_delta:.2f}")
-
-        print()
-        print("calibration complete")
-        print("add the following lines to your interface config to skip calibration")
-        print("")
-        print(f'"reamp_delta": {self.reamp_delta:.2f},')
-        print("")
-        print("recalibrate following any setting or hardware changes")
-        print("")
 
         return self.reamp_delta
