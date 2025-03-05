@@ -1,3 +1,4 @@
+from enum import Enum
 from pathlib import Path
 import sys
 import threading
@@ -10,15 +11,23 @@ import sounddevice as sd
 from capture_tool.interface import Interface
 from capture_tool.audio import pack, unpack, int_to_dbfs
 
+LATENCY_OFFSET = 0
+
+
+class LatencyAdjustment(Enum):
+    NONE = 0
+    BASE = 1
+    INDIVIDUAL = 2
+
 
 class Capture:
     def __init__(
         self,
+        config: dict,
         interface: Interface,
-        input_wav: wavio.Wav,
     ):
         self.interface = interface
-        self.input_wav = input_wav
+        self.input_wav = wavio.read(config["reamp_file"])
 
     def _get_total_time(self, reamp_wav: wavio.Wav) -> str:
         return (
@@ -54,7 +63,9 @@ class Capture:
             if np.abs(cross_corr[max_cc]) < np.abs(cross_corr[min_cc]):
                 max_cc = min_cc
                 channel_inversions[i] = True
-            channel_delays[i] = len(recording_short) - max_cc - 1 - 1
+
+            # Calculate the delay for each channel
+            channel_delays[i] = len(recording_short) - max_cc - 1 - LATENCY_OFFSET
         return channel_delays, channel_inversions
 
     def _process_recordings(
@@ -63,27 +74,26 @@ class Capture:
         raw_recording: np.ndarray,
         channel_delays: np.ndarray,
         channel_inversions: np.ndarray,
-        correct_audio_inversions: bool = True,
-        correct_base_latency: bool = True,
-        correct_individual_latency: bool = False,
+        latency_adjustment: LatencyAdjustment = LatencyAdjustment.BASE,
+        inversion_adjustment: bool = True,
     ) -> np.ndarray:
         processed_recording = np.zeros_like(raw_recording)
 
         # apply the calculated delays to the recording data
-        if correct_individual_latency:
-            for i in range(self.interface.num_input_channels):
-                processed_recording[: -channel_delays[0], i] = raw_recording[channel_delays[0] :, i]
-        elif correct_base_latency:
+        if latency_adjustment == LatencyAdjustment.BASE:
             for i in range(self.interface.num_input_channels):
                 processed_recording[: -channel_delays[i], i] = raw_recording[channel_delays[i] :, i]
+        elif latency_adjustment == LatencyAdjustment.INDIVIDUAL:
+            for i in range(self.interface.num_input_channels):
+                processed_recording[: -channel_delays[0], i] = raw_recording[channel_delays[0] :, i]
         else:
             processed_recording[:, :] = raw_recording[:, :]
 
         # invert the recording data if necessary
-        if correct_audio_inversions:
+        if inversion_adjustment:
             for i in range(self.interface.num_input_channels):
                 if channel_inversions[i]:
-                    print("detected signal inversion on channel {i}, correcting", i)
+                    print(f"detected signal inversion on channel {i}, correcting")
                     processed_recording[:, i] *= -1
 
         # trim the recording data to the length of the reamp data
@@ -94,9 +104,8 @@ class Capture:
     def run(
         self,
         plot_latency: bool = False,
-        correct_audio_inversions: bool = True,
-        correct_base_latency: bool = True,
-        correct_individual_latency: bool = False,
+        latency_adjustment: LatencyAdjustment = LatencyAdjustment.BASE,
+        inversion_adjustment: bool = True,
     ) -> tuple[np.ndarray, np.ndarray]:
         if self.interface.reamp_delta is None:
             raise RuntimeError("reamp not calibrated. exitting...")
@@ -165,9 +174,8 @@ class Capture:
             raw_recording,
             channel_delays,
             channel_inversions,
-            correct_audio_inversions,
-            correct_base_latency,
-            correct_individual_latency,
+            inversion_adjustment=inversion_adjustment,
+            latency_adjustment=latency_adjustment,
         )
 
         if plot_latency:
