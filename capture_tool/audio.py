@@ -4,9 +4,15 @@ import numpy as np
 
 
 class SineWave:
-    def __init__(self, frequency: float = 1000.0, samplerate: int = 44100, dbfs: float = -12.0):
+    def __init__(
+        self,
+        frequency: float = 1000.0,
+        samplerate: int = 48000,
+        dbfs: float = -12.0,
+    ):
         amplitude = 10 ** (dbfs / 20.0)
         max_val = 2 ** (24 - 1) - 1
+        self.samplerate = samplerate
         self.period = int(samplerate / frequency)
         self.lookup_table = np.array(
             [
@@ -27,6 +33,11 @@ class SineWave:
 
     def __iter__(self):
         return self
+
+    def of_length(self, seconds: float = 2, samples: int = None) -> np.array:
+        if samples is not None:
+            return np.array([next(self) for _ in range(samples)])
+        return np.array([next(self) for _ in range(int(seconds * self.samplerate))])
 
 
 # Convert floating-point audio data to 24-bit data
