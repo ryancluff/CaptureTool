@@ -1,5 +1,4 @@
 {
-    "reamp_file": "v3_0_0.wav",
-    "blocksize": 512,
+    "reamp_file": "inputs/v3_0_0.wav",
     "type": "snapshot"
 }
