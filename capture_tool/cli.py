@@ -48,6 +48,18 @@ def _write_configs(
             json.dump(device_config, fp, indent=4)
 
 
+def create_captures_dir(path: str = "captures") -> Path:
+    captures_dir = Path(path)
+    captures_dir.mkdir(exist_ok=True)
+    return captures_dir
+
+
+def create_capture_dir(captures_dir: Path, path: str = timestamp()) -> Path:
+    captures_dir = Path(captures_dir, path)
+    captures_dir.mkdir(exist_ok=False)
+    return captures_dir
+
+
 def _calibrate(interface: Interface) -> float:
     pause_after_calibration = False
     if interface.reamp_delta is None:
@@ -91,36 +103,19 @@ def _passthrough(interface: Interface) -> None:
     interface.passthrough()
 
 
-def create_captures_dir(path: str = "captures") -> Path:
-    captures_dir = Path(path)
-    captures_dir.mkdir(exist_ok=True)
-    return captures_dir
-
-
-def create_capture_dir(captures_dir: Path, path: str = timestamp()) -> Path:
-    captures_dir = Path(captures_dir, path)
-    captures_dir.mkdir(exist_ok=False)
-    return captures_dir
-
-
 def cli():
     parser = ArgumentParser(description="Capture tool")
-
     subparsers = parser.add_subparsers(dest="command")
-
     list_parser = subparsers.add_parser("list-interfaces")
     list_parser.add_argument("interface", nargs="?", type=int, default=None)
-
     capture_parser = subparsers.add_parser("capture", help="Run a capture")
     capture_parser.add_argument("interface_config_path", type=str)
     capture_parser.add_argument("capture_config_path", type=str)
     capture_parser.add_argument("device_config_path", nargs="?", type=str, default=None)
-
     passthrough_parser = subparsers.add_parser("passthrough", help="Passthrough instrument audio")
     passthrough_parser.add_argument("interface_config_path", type=str)
 
     args = parser.parse_args()
-
     if args.command == "list-interfaces":
         if args.interface is not None:
             print(sd.query_devices(args.interface))
