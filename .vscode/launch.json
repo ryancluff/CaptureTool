@@ -13,7 +13,7 @@
             ]
         },
         {
-            "name": "list-interfaces --interface 10",
+            "name": "list-interfaces 10",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
@@ -21,7 +21,6 @@
             "justMyCode": false,
             "args": [
                 "list-interfaces",
-                "--interface",
                 "10"
             ]
         },
@@ -34,9 +33,8 @@
             "justMyCode": false,
             "args": [
                 "capture",
-                "configs/capture/default.json",
                 "configs/interface/default.json",
-                "--device_config_path",
+                "configs/capture/default.json",
                 "configs/device/default.json"
             ]
         },
@@ -49,8 +47,8 @@
             "justMyCode": false,
             "args": [
                 "capture",
-                "configs/capture/default.json",
-                "configs/interface/default.json"
+                "configs/interface/default.json",
+                "configs/capture/default.json"
             ]
         }
     ]
