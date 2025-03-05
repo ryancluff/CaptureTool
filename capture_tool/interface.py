@@ -1,4 +1,5 @@
 import sys
+import threading
 import time
 
 import numpy as np
@@ -35,11 +36,12 @@ class Interface:
         # dB adjustments for dBu to dBFS conversion
         # (dbu - dbfs = delta)
         self.reamp_delta = config.get("reamp_delta", None)
+        self.input_deltas = config.get("input_deltas", None)
 
     def calibrate_reamp(
         self,
         init_dbfs=0.0,
-    ):
+    ) -> float:
         num_output_channels = self.channels["reamp"]
         num_input_channels = len(self.channels["input"])
 
@@ -83,3 +85,77 @@ class Interface:
                 target_dbfs = dbu_to_dbfs(self.target_dbu, self.reamp_delta)
 
         return self.reamp_delta
+
+    def calibrate_inputs(
+        self,
+        test_dbfs: float = 0.0,
+    ) -> list[float]:
+        self.input_deltas = [0.0] * self.num_input_channels
+
+        sine_wave = SineWave(self.frequency, self.samplerate, test_dbfs)
+        sine_wave_2s = np.zeros(2 * self.samplerate)
+        for i in range(len(sine_wave_2s)):
+            sine_wave_2s[i] = next(sine_wave)
+
+        def callback(indata, outdata, frames, time, status):
+            if status:
+                print(status, file=sys.stderr)
+
+            nonlocal recording_levels
+            nonlocal current_frame
+            chunksize = min(len(sine_wave_2s) - current_frame, frames)
+
+            # write the reamp data to the interface output channel
+            output = np.zeros((frames, self.num_output_channels))
+            output[:chunksize, self.channels["reamp"] - 1] = sine_wave_2s[
+                current_frame : current_frame + chunksize
+            ].flatten()
+            outdata[:] = pack(output)
+
+            # read the recording data from the interface input channels
+            input = unpack(indata, self.num_input_channels)
+            recording_levels[:] = np.max(np.abs(input), axis=0)
+
+            current_frame += frames
+            if current_frame >= len(sine_wave_2s):
+                raise sd.CallbackStop()
+
+        for i in range(self.num_input_channels):
+            current_frame = 0
+            recording_levels = np.zeros(self.num_input_channels, dtype=np.int32)
+            recording_done = threading.Event()
+            stream = sd.RawStream(
+                samplerate=self.samplerate,
+                blocksize=self.blocksize,
+                device=self.device,
+                channels=(self.num_input_channels, self.num_output_channels),
+                dtype="int24",
+                callback=callback,
+                finished_callback=recording_done.set,
+            )
+            input(f"channel {i} - press enter to continue")
+            with stream:
+                while not recording_done.wait(timeout=1.0):
+                    pass
+            self.input_deltas[i] = int_to_dbfs(recording_levels[i]) - test_dbfs
+
+        return self.input_deltas
+
+    def passthrough(self):
+        def callback(indata, outdata, frames, time, status):
+            if status:
+                print(status, file=sys.stderr)
+
+            outdata[:] = indata
+
+        stream = sd.RawStream(
+            samplerate=self.samplerate,
+            blocksize=self.blocksize,
+            device=self.device,
+            channels=(self.num_input_channels, self.num_output_channels),
+            dtype="int24",
+            callback=callback,
+        )
+
+        with stream:
+            time.sleep(duration)
