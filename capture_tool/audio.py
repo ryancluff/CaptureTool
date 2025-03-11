@@ -52,6 +52,9 @@ def unpack(data: bytes, channels: int) -> np.array:
     ).reshape((-1, channels))
 
 
+def db_to_scalar(db: float) -> float:
+    return 10 ** (db / 20)
+
 # Convert RMS voltage to dBu
 def v_rms_to_dbu(v_rms: float) -> float:
     return 20 * math.log10(v_rms / 0.7746)
