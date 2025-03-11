@@ -1,20 +1,28 @@
 {
-    "name": "Gallien-Krueger Goldline 500",
-    "gear_make": "Gallien-Krueger",
-    "gear_model": "Goldline 500",
-    "gear_type": "Bass Amp",
+    "name": "Fender Tweed Bassman 2000 Reissue",
+    "gear_make": "Fender",
+    "gear_model": "Tweed Bassman 2000 Reissue",
+    "gear_type": "Guitar Amp",
     "parameter_labels": [
-        "gain",
-        "contour",
-        "treble",
-        "hi-mid",
-        "low-mid",
-        "bass",
-        "boost",
-        "master-b",
-        "master-a"
+        "Presence",
+        "Middle",
+        "Bass",
+        "Treble",
+        "Volume Bright",
+        "Volume Normal"
+    ],
+    "parameter_values": [
+        6.5,
+        6.5,
+        6.5,
+        6.5,
+        1,
+        9.0
     ],
     "switch_labels": [
-        "a/b"
+        "input"
+    ],
+    "switch_values": [
+        1
     ]
 }

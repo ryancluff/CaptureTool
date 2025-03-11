@@ -1,18 +1,15 @@
 {
-    "device": 6,
+    "device": 0,
     "channels": {
         "input": [
-            "source",
-            "loop",
-            "main",
-            "di"
+            "loopback",
+            "instrument"
         ],
-        "reamp": 3,
-        "monitor": 1,
-        "passthrough": "source"
+        "reamp": 3
     },
-    "target_dbu": 3.0,
-    "frequency": 400,
+    "output_level_max_dbu": 9.0,
+    "frequency": 1000,
     "blocksize": 512,
+    "reamp_file": "inputs/v3_0_0.wav",
     "samplerate": 48000
 }
