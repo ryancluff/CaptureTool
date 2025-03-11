@@ -4,63 +4,39 @@ from pathlib import Path
 import sounddevice as sd
 import wavio
 
-from capture_tool.capture import Capture
-from capture_tool.interface import Interface
+from capture_tool.interface import AudioInterface
 from capture_tool.util import timestamp
 
 
-def _read_configs(
-    interface_config_path: Path,
-    capture_config_path: Path | None = None,
-    device_config_path: Path | None = None,
-) -> tuple[dict, dict | None, dict | None]:
-    with open(interface_config_path, "r") as fp:
-        interface_config = json.load(fp)
-        interface_config["path"] = interface_config_path
-    if capture_config_path is not None:
-        with open(capture_config_path, "r") as fp:
-            capture_config = json.load(fp)
-            capture_config["path"] = capture_config_path
-    else:
-        capture_config = None
-    if device_config_path is not None:
-        with open(device_config_path, "r") as fp:
-            device_config = json.load(fp)
-            device_config["path"] = device_config_path
-    else:
-        device_config = None
-    return interface_config, capture_config, device_config
+def _read_config(path: Path) -> dict:
+    with open(path, "r") as fp:
+        config = json.load(fp)
+        config["path"] = str(path)
+    return config
 
 
-def _write_configs(
+def _write_config(
     capture_dir: Path,
-    interface_config: dict,
-    capture_config: dict | None = None,
-    device_config: dict | None = None,
+    config: dict,
+    name: str = "interface",
 ) -> None:
-    with open(Path(capture_dir, "interface.json"), "w") as fp:
-        json.dump(interface_config, fp, indent=4)
-    if capture_config is not None:
-        with open(Path(capture_dir, "capture.json"), "w") as fp:
-            json.dump(capture_config, fp, indent=4)
-    if device_config is not None:
-        with open(Path(capture_dir, "device.json"), "w") as fp:
-            json.dump(device_config, fp, indent=4)
+    with open(Path(capture_dir, name + ".json"), "w") as fp:
+        json.dump(config, fp, indent=4)
 
 
-def create_captures_dir(path: str = "captures") -> Path:
+def _create_captures_dir(path: str = "captures") -> Path:
     captures_dir = Path(path)
     captures_dir.mkdir(exist_ok=True)
     return captures_dir
 
 
-def create_capture_dir(captures_dir: Path, path: str = timestamp()) -> Path:
+def _create_capture_dir(captures_dir: Path, path: str = timestamp()) -> Path:
     captures_dir = Path(captures_dir, path)
     captures_dir.mkdir(exist_ok=False)
     return captures_dir
 
 
-def _calibrate(interface: Interface) -> float:
+def _calibrate(interface: AudioInterface) -> tuple[float, float]:
     pause_after_calibration = False
     if interface.reamp_delta is None:
         pause_after_calibration = True
@@ -68,7 +44,7 @@ def _calibrate(interface: Interface) -> float:
         input("press enter to start reamp calibration...")
         print("calibrating reamp output...")
         reamp_delta = interface.calibrate_reamp()
-        print(f"target reamp level: {interface.target_dbu:.2f} dBu")
+        print(f"target reamp level: {interface.output_level_max_dbu:.2f} dBu")
         print(f"calculated input delta (dbu - dbfs): {interface.reamp_delta:.2f}")
         print("calibration complete")
         print(f'"reamp_delta": {interface.reamp_delta:.2f}')
@@ -99,25 +75,34 @@ def _calibrate(interface: Interface) -> float:
     return reamp_delta, input_deltas
 
 
-def _passthrough(interface: Interface) -> None:
+def _passthrough(interface: AudioInterface) -> None:
     interface.passthrough()
 
 
 def cli():
     parser = ArgumentParser(description="Capture tool")
     subparsers = parser.add_subparsers(dest="command")
+
     list_parser = subparsers.add_parser("list-interfaces")
     list_parser.add_argument("interface", nargs="?", type=int, default=None)
+
     capture_parser = subparsers.add_parser("capture", help="Run a capture")
     capture_parser.add_argument("interface_config_path", type=str)
-    capture_parser.add_argument("capture_config_path", type=str)
     capture_parser.add_argument("device_config_path", nargs="?", type=str, default=None)
+
+    reamp_parser = subparsers.add_parser("reamp", help="Loop reamp output without recording")
+    reamp_parser.add_argument("interface_config_path", type=str)
+
     passthrough_parser = subparsers.add_parser("passthrough", help="Passthrough instrument audio")
     passthrough_parser.add_argument("interface_config_path", type=str)
 
+    testtone_parser = subparsers.add_parser("testtone", help="Generate a test tone")
+    testtone_parser.add_argument("interface_config_path", type=str)
+    testtone_parser.add_argument("type", nargs="?", type=str, default="dbfs")
+
     args = parser.parse_args()
     if args.command == "list-interfaces":
-        if args.interface is not None:
+        if args.interface:
             print(sd.query_devices(args.interface))
             print("")
             samplerates = [32000, 44100, 48000, 88200, 96000, 128000, 192000]
@@ -133,47 +118,55 @@ def cli():
         else:
             print(sd.query_devices())
     elif args.command == "capture":
-        capture_config, interface_config, device_config = _read_configs(
-            args.interface_config_path,
-            args.capture_config_path,
-            args.device_config_path,
-        )
-        captures_dir = create_captures_dir()
-        capture_dir = create_capture_dir(captures_dir)
+        # read configs, create dirs
+        interface_config = _read_config(args.interface_config_path)
+        if args.device_config_path:
+            device_config = _read_config(args.device_config_path)
+        captures_dir = _create_captures_dir()
+        capture_dir = _create_capture_dir(captures_dir)
 
-        capture = Capture(capture_config, Interface(interface_config))
+        interface = AudioInterface(interface_config)
         # Run calibration if needed
-        interface_config["reamp_delta"] = _calibrate(capture.interface)
-        _write_configs(
-            capture_dir,
-            interface_config,
-            capture_config,
-            device_config,
-        )
-        raw_recording, processed_recording = capture.run(plot_latency=True)
+        interface_config["reamp_delta"] = _calibrate(interface)
+        _write_config(capture_dir, interface_config)
+        if args.device_config_path:
+            _write_config(capture_dir, device_config, "device")
+        raw_recording, processed_recording = interface.capture(plot_latency=True)
         # Save the raw recording to a single wav file
         # The number of channels in the wav file is equal to the number of input channels
         wavio.write(
             str(Path(capture_dir, "recording-raw.wav")),
             raw_recording,
-            capture.input_wav.rate,
+            interface.input_wav.rate,
             sampwidth=3,
         )
         # Save the processed recording data
         # Each channel is saved to a separate mono wav file
-        for i in range(len(capture.interface.channels["input"])):
-            channel = capture.interface.channels["input"][i]
+        for i in range(len(interface.interface.channels["input"])):
+            channel = interface.interface.channels["input"][i]
             wavio.write(
                 str(Path(capture_dir, f"recording-{channel}.wav")),
                 processed_recording[:, i],
-                capture.input_wav.rate,
+                interface.input_wav.rate,
                 sampwidth=3,
             )
+    elif args.command == "reamp":
+        interface_config = _read_config(args.interface_config_path)
+        interface = AudioInterface(interface_config)
+        interface_config["reamp_delta"], interface_config["input_deltas"] = _calibrate(interface)
     elif args.command == "passthrough":
-        interface_config = _read_configs(args.interface_config_path)
-        interface = Interface(interface_config)
+        interface_config = _read_config(args.interface_config_path)
+        interface = AudioInterface(interface_config)
         interface_config["reamp_delta"], interface_config["input_deltas"] = _calibrate(interface)
         _passthrough(interface)
+    elif args.command == "testtone":
+        interface_config = _read_config(args.interface_config_path)
+        interface = AudioInterface(interface_config)
+        if args.type == "dbfs":
+            interface.testtone()
+        elif args.type == "dbu":
+            _calibrate(interface)
+            interface.testtone_dbu()
     print("done")
 
 
