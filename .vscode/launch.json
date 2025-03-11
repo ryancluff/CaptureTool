@@ -25,6 +25,19 @@
             ]
         },
         {
+            "name": "testtone dbfs",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "testtone",
+                "configs/interface/default.json",
+                "dbfs"
+            ]
+        },
+        {
             "name": "capture w/ device",
             "type": "debugpy",
             "request": "launch",
@@ -34,7 +47,6 @@
             "args": [
                 "capture",
                 "configs/interface/default.json",
-                "configs/capture/default.json",
                 "configs/device/default.json"
             ]
         },
@@ -48,7 +60,6 @@
             "args": [
                 "capture",
                 "configs/interface/default.json",
-                "configs/capture/default.json"
             ]
         }
     ]
