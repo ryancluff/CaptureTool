@@ -1,6 +1,7 @@
 .venv/
 .vscode/settings.json
 
+.pytest_cache/
 __pycache__/
 
 captures/
