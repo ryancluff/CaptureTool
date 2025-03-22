@@ -37,9 +37,9 @@ def _create_capture_dir(captures_dir: Path, path: str = timestamp()) -> Path:
 
 
 def _calibrate(interface: AudioInterface) -> tuple[float, float]:
-    pause_after_calibration = False
+    calibration_changed = False
     if interface._send_level_dbu is None:
-        pause_after_calibration = True
+        calibration_changed = True
         print("reamp calibration required. verify reamp output is only connect to the voltmeter.")
         input("press enter to start reamp calibration...")
         print("calibrating reamp output...")
@@ -54,7 +54,7 @@ def _calibrate(interface: AudioInterface) -> tuple[float, float]:
         print(f"configured input delta (dbu - dbfs): {interface._send_level_dbu:.2f}")
 
     if interface._return_level_dbu is None:
-        pause_after_calibration = True
+        calibration_changed = True
         print("input calibration required")
         print("calibrating input channels...")
         print("connect the reamp output to each input channel one at a time")
@@ -66,7 +66,7 @@ def _calibrate(interface: AudioInterface) -> tuple[float, float]:
         print("input calibration not required")
         print(f"configured reamp -> input deltas (dbfs): {interface._return_level_dbu:.2f}")
 
-    if pause_after_calibration:
+    if calibration_changed:
         print("calibration values saved to interface config in capture directory")
         print("copy these values to the supplied interface config file to skip calibration in the future")
         print("recalibrate following any settings (gain) or hardware changes")
