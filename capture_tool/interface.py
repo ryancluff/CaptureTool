@@ -62,7 +62,7 @@ class AudioInterface:
 
     def calibrate_reamp(
         self,
-        init_dbfs=0.0,
+        init_dbfs: float = -3.0,
     ) -> float:
         num_output_channels = self.channels["reamp"]
         num_input_channels = len(self.channels["input"])
