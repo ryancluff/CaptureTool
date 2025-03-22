@@ -43,18 +43,34 @@ class SineWave:
 
 # Convert floating-point audio data to 24-bit data
 def pack(data: np.array) -> bytes:
-    return b"".join(int(sample).to_bytes(3, byteorder="little", signed=True) for sample in data.flatten())
+    return b"".join(
+        int(sample).to_bytes(
+            3,
+            byteorder="little",
+            signed=True,
+        )
+        for sample in data.flatten()
+    )
 
 
 # Convert 24-bit data to floating-point audio data
 def unpack(data: bytes, channels: int) -> np.array:
     return np.array(
-        [int.from_bytes(data[i : i + 3], "little", signed=True) for i in range(0, len(data), 3)], dtype=np.int32
+        [
+            int.from_bytes(
+                data[i : i + 3],
+                byteorder="little",
+                signed=True,
+            )
+            for i in range(0, len(data), 3)
+        ],
+        dtype=np.int32,
     ).reshape((-1, channels))
 
 
 def db_to_scalar(db: float) -> float:
     return 10 ** (db / 20)
+
 
 # Convert RMS voltage to dBu
 def v_rms_to_dbu(v_rms: float) -> float:
