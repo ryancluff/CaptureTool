@@ -33,12 +33,12 @@
             "justMyCode": false,
             "args": [
                 "testtone",
-                "configs/interface/default.json",
+                "configs/default.json",
                 "dbfs"
             ]
         },
         {
-            "name": "capture w/ device",
+            "name": "capture",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
@@ -46,20 +46,7 @@
             "justMyCode": false,
             "args": [
                 "capture",
-                "configs/interface/default.json",
-                "configs/device/default.json"
-            ]
-        },
-        {
-            "name": "capture w/o device",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/main.py",
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "args": [
-                "capture",
-                "configs/interface/default.json",
+                "configs/default.json",
             ]
         }
     ]
