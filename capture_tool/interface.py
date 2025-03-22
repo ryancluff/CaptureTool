@@ -101,36 +101,33 @@ class AudioInterface:
 
     def calibrate_inputs(
         self,
-        test_dbfs: float = 0.0,
+        test_dbfs: float = -3.0,
     ) -> list[float]:
-        self._return_level_dbu = [0.0] * self.num_input_channels
+        self._return_level_dbu = np.zeros(self.num_input_channels, dtype=np.float32)
 
-        sine_wave = SineWave(self.frequency, self.samplerate, test_dbfs)
-        sine_wave_2s = np.zeros(2 * self.samplerate)
-        for i in range(len(sine_wave_2s)):
-            sine_wave_2s[i] = next(sine_wave)
+        sine_wave_short = SineWave(self.frequency, self.samplerate, test_dbfs).of_length(seconds=2)
 
         def callback(indata, outdata, frames, time, status):
             if status:
                 print(status, file=sys.stderr)
 
-            nonlocal recording_levels
             nonlocal current_frame
-            chunksize = min(len(sine_wave_2s) - current_frame, frames)
+            chunksize = min(len(sine_wave_short) - current_frame, frames)
 
             # write the reamp data to the interface output channel
             output = np.zeros((frames, self.num_output_channels))
-            output[:chunksize, self.channels["reamp"] - 1] = sine_wave_2s[
+            output[:chunksize, self.channels["reamp"] - 1] = sine_wave_short[
                 current_frame : current_frame + chunksize
             ].flatten()
             outdata[:] = pack(output)
 
             # read the recording data from the interface input channels
+            nonlocal recording_levels
             input = unpack(indata, self.num_input_channels)
             recording_levels[:] = np.max(np.abs(input), axis=0)
 
             current_frame += frames
-            if current_frame >= len(sine_wave_2s):
+            if current_frame >= len(sine_wave_short):
                 raise sd.CallbackStop()
 
         for i in range(self.num_input_channels):
