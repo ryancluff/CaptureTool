@@ -28,7 +28,7 @@ class LatencyAdjustment(Enum):
     INDIVIDUAL = 2
 
 
-class TestToneMode(Enum):
+class TestToneUnit(Enum):
     DBFS = 0
     DBU = 1
 
@@ -53,8 +53,12 @@ class AudioInterface:
         # Interface calibration results
         # dB adjustments for dBu to dBFS conversion
         # (dbu - dbfs = delta)
-        self.reamp_delta = config.get("reamp_delta", None)
-        self.input_deltas = config.get("input_deltas", None)
+
+        # Optional calibration values
+        # The level (dBu) being sent from the interface to the gear corresponding to a 1kHz sine wave with 0dBFS peak
+        self._send_level_dbu = config.get("_send_level_dbu ", None)
+        # The level (dBu) returned from the device to the interface corresponding to a 1kHz sine wave with 0dBFS peak
+        self._return_level_dbu = config.get("_return_level_dbu", None)
 
     def calibrate_reamp(
         self,
@@ -92,23 +96,23 @@ class AudioInterface:
         with stream:
             reamp_v_rms = float(input(f"enter measured rms voltage: "))
             reamp_dbu = v_rms_to_dbu(reamp_v_rms)
-            self.reamp_delta = reamp_dbu - init_dbfs
-            target_dbfs = dbu_to_dbfs(self.output_level_max_dbu, self.reamp_delta)
+            self._send_level_dbu = reamp_dbu - init_dbfs
+            target_dbfs = dbu_to_dbfs(self.output_level_max_dbu, self._send_level_dbu)
 
             while reamp_dbu - self.output_level_max_dbu > 0.001:
                 sine_wave = SineWave(self.frequency, self.samplerate, target_dbfs)
                 reamp_v_rms = float(input("enter new rms voltage: "))
                 reamp_dbu = v_rms_to_dbu(reamp_v_rms)
-                self.reamp_delta = reamp_dbu - init_dbfs
-                target_dbfs = dbu_to_dbfs(self.output_level_max_dbu, self.reamp_delta)
+                self._send_level_dbu = reamp_dbu - init_dbfs
+                target_dbfs = dbu_to_dbfs(self.output_level_max_dbu, self._send_level_dbu)
 
-        return self.reamp_delta
+        return self._send_level_dbu
 
     def calibrate_inputs(
         self,
         test_dbfs: float = 0.0,
     ) -> list[float]:
-        self.input_deltas = [0.0] * self.num_input_channels
+        self._return_level_dbu = [0.0] * self.num_input_channels
 
         sine_wave = SineWave(self.frequency, self.samplerate, test_dbfs)
         sine_wave_2s = np.zeros(2 * self.samplerate)
@@ -155,9 +159,9 @@ class AudioInterface:
             with stream:
                 while not recording_done.wait(timeout=1.0):
                     pass
-            self.input_deltas[i] = int_to_dbfs(recording_levels[i]) - test_dbfs
+            self._return_level_dbu[i] = int_to_dbfs(recording_levels[i]) - test_dbfs
 
-        return self.input_deltas
+        return self._return_level_dbu
 
     def _calculate_latency(
         self,
@@ -229,11 +233,11 @@ class AudioInterface:
         latency_adjustment: LatencyAdjustment = LatencyAdjustment.BASE,
         inversion_adjustment: bool = True,
     ) -> tuple[np.ndarray, np.ndarray]:
-        if self.reamp_delta is None:
+        if self._send_level_dbu is None:
             raise RuntimeError("reamp not calibrated. exitting...")
 
         # scale the reamp data using the reamp delta to output at the proper level
-        reamp_audio = np.array(self.input_wav.data * db_to_scalar(0 - self.reamp_delta), dtype=np.int32)
+        reamp_audio = np.array(self.input_wav.data * db_to_scalar(0 - self._send_level_dbu), dtype=np.int32)
         # append 10 blocks of zeros to the end of the input data to account for latency
         raw_recording = np.zeros((len(reamp_audio) + 10 * self.blocksize, self.num_input_channels), dtype=np.int32)
 
@@ -326,14 +330,25 @@ class AudioInterface:
 
         return raw_recording, processed_recording
 
-    def testtone(self, mode: TestToneMode = TestToneMode.DBFS):
-        if mode == TestToneMode.DBU and self.reamp_delta is None:
+    def testtone(
+        self,
+        output_level: float,
+        unit: TestToneUnit = TestToneUnit.DBFS,
+    ):
+        if unit == TestToneUnit.DBU and self._send_level_dbu is None:
             raise RuntimeError("reamp not calibrated. exitting...")
+        if unit == TestToneUnit.DBFS and output_level > 0.0:
+            raise ValueError("output level must be negative for dbfs test tone")
 
         num_output_channels = self.channels["reamp"]
 
-        output_level = -3
-        sine_wave = SineWave(self.frequency, self.samplerate, output_level)
+        def get_output_level_dbfs():
+            if unit == TestToneUnit.DBFS:
+                return output_level
+            elif unit == TestToneUnit.DBU:
+                return dbfs_to_dbu(output_level, self._send_level_dbu)
+
+        sine_wave = SineWave(self.frequency, self.samplerate, get_output_level_dbfs())
 
         def callback(outdata, frames, time, status):
             if status:
@@ -353,31 +368,29 @@ class AudioInterface:
             callback=callback,
         )
 
-        try:
-            with stream:
-                print("press ctrl+c to stop")
-                print("enter 1 to increase output level, 2 to decrease output level")
-                while True:
-                    print("output level (dbfs): ", output_level)
-                    control = input("> ")
-                    if control == "1":
-                        output_level += 1
-                        sine_wave = SineWave(self.frequency, self.samplerate, output_level)
-                    elif control == "2":
-                        output_level -= 1
-                        sine_wave = SineWave(self.frequency, self.samplerate, output_level)
-                    else:
-                        print("invalid input")
-
-        except KeyboardInterrupt:
-            pass
+        with stream:
+            print("enter 1 to increase output level, 2 to decrease output level, q to quit")
+            control = "0"
+            while control != "q":
+                print("output level: ", output_level, "dbfs" if unit == TestToneUnit.DBFS else "dbu")
+                if control == "1":
+                    output_level += 1
+                    sine_wave = SineWave(self.frequency, self.samplerate, get_output_level_dbfs())
+                elif control == "2":
+                    output_level -= 1
+                    sine_wave = SineWave(self.frequency, self.samplerate, get_output_level_dbfs())
+                elif control == "0" or control == "q":
+                    pass
+                else:
+                    print("invalid input")
+                control = input("> ")
 
     def reamp(self):
-        if self.reamp_delta is None:
+        if self._send_level_dbu is None:
             raise RuntimeError("reamp not calibrated. exitting...")
 
         # scale the reamp data using the reamp delta to output at the proper level
-        reamp_audio = np.array(self.input_wav.data * db_to_scalar(0 - self.reamp_delta), dtype=np.int32)
+        reamp_audio = np.array(self.input_wav.data * db_to_scalar(0 - self._send_level_dbu), dtype=np.int32)
 
         current_frame = 0
         recording_done = threading.Event()

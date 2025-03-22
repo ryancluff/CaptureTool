@@ -4,7 +4,7 @@ from pathlib import Path
 import sounddevice as sd
 import wavio
 
-from capture_tool.interface import AudioInterface
+from capture_tool.interface import AudioInterface, TestToneUnit
 from capture_tool.util import timestamp
 
 
@@ -38,33 +38,33 @@ def _create_capture_dir(captures_dir: Path, path: str = timestamp()) -> Path:
 
 def _calibrate(interface: AudioInterface) -> tuple[float, float]:
     pause_after_calibration = False
-    if interface.reamp_delta is None:
+    if interface._send_level_dbu is None:
         pause_after_calibration = True
         print("reamp calibration required. verify reamp output is only connect to the voltmeter.")
         input("press enter to start reamp calibration...")
         print("calibrating reamp output...")
-        reamp_delta = interface.calibrate_reamp()
+        _send_level_dbu = interface.calibrate_reamp()
         print(f"target reamp level: {interface.output_level_max_dbu:.2f} dBu")
-        print(f"calculated input delta (dbu - dbfs): {interface.reamp_delta:.2f}")
+        print(f"calculated input delta (dbu - dbfs): {interface._send_level_dbu:.2f}")
         print("calibration complete")
-        print(f'"reamp_delta": {interface.reamp_delta:.2f}')
+        print(f'"_send_level_dbu ": {interface._send_level_dbu:.2f}')
     else:
-        reamp_delta = interface.reamp_delta
+        _send_level_dbu = interface._send_level_dbu
         print("reamp calibration not required")
-        print(f"configured input delta (dbu - dbfs): {interface.reamp_delta:.2f}")
+        print(f"configured input delta (dbu - dbfs): {interface._send_level_dbu:.2f}")
 
-    if interface.input_deltas is None:
+    if interface._return_level_dbu is None:
         pause_after_calibration = True
         print("input calibration required")
         print("calibrating input channels...")
         print("connect the reamp output to each input channel one at a time")
-        input_deltas = interface.calibrate_inputs()
-        print(f"calculated reamp -> input deltas (dbfs): {interface.reamp_delta:.2f}")
+        _return_level_dbu = interface.calibrate_inputs()
+        print(f"calculated reamp -> input deltas (dbfs): {interface._send_level_dbu:.2f}")
         print("calibration complete")
     else:
-        input_deltas = interface.input_deltas
+        _return_level_dbu = interface._return_level_dbu
         print("input calibration not required")
-        print(f"configured reamp -> input deltas (dbfs): {interface.input_deltas:.2f}")
+        print(f"configured reamp -> input deltas (dbfs): {interface._return_level_dbu:.2f}")
 
     if pause_after_calibration:
         print("calibration values saved to interface config in capture directory")
@@ -72,7 +72,7 @@ def _calibrate(interface: AudioInterface) -> tuple[float, float]:
         print("recalibrate following any settings (gain) or hardware changes")
         input("press enter to continue...")
 
-    return reamp_delta, input_deltas
+    return _send_level_dbu, _return_level_dbu
 
 
 def _passthrough(interface: AudioInterface) -> None:
@@ -98,7 +98,8 @@ def cli():
 
     testtone_parser = subparsers.add_parser("testtone", help="Generate a test tone")
     testtone_parser.add_argument("interface_config_path", type=str)
-    testtone_parser.add_argument("type", nargs="?", type=str, default="dbfs")
+    testtone_parser.add_argument("type", nargs="?", type=str, default="dbfs", choices=["dbfs", "dbu"])
+    testtone_parser.add_argument("--level", type=float, required=False)
 
     args = parser.parse_args()
     if args.command == "list-interfaces":
@@ -128,7 +129,7 @@ def cli():
 
         interface = AudioInterface(interface_config)
         # Run calibration if needed
-        interface_config["reamp_delta"] = _calibrate(interface)
+        interface_config["_send_level_dbu "] = _calibrate(interface)
         _write_config(capture_dir, interface_config)
         if args.device_config_path:
             _write_config(capture_dir, device_config, "device")
@@ -154,20 +155,24 @@ def cli():
     elif args.command == "reamp":
         interface_config = _read_config(args.interface_config_path)
         interface = AudioInterface(interface_config)
-        interface_config["reamp_delta"], interface_config["input_deltas"] = _calibrate(interface)
+        interface_config["_send_level_dbu "], interface_config["_return_level_dbu"] = _calibrate(interface)
     elif args.command == "passthrough":
         interface_config = _read_config(args.interface_config_path)
         interface = AudioInterface(interface_config)
-        interface_config["reamp_delta"], interface_config["input_deltas"] = _calibrate(interface)
+        interface_config["_send_level_dbu "], interface_config["_return_level_dbu"] = _calibrate(interface)
         _passthrough(interface)
     elif args.command == "testtone":
         interface_config = _read_config(args.interface_config_path)
         interface = AudioInterface(interface_config)
         if args.type == "dbfs":
-            interface.testtone()
+            if args.level is None:
+                args.level = -3
+            interface.testtone(args.level, unit=TestToneUnit.DBFS)
         elif args.type == "dbu":
             _calibrate(interface)
-            interface.testtone_dbu()
+            if args.level is None:
+                args.level = 3
+            interface.testtone(args.level, unit=TestToneUnit.DBU)
 
 
 if __name__ == "__main__":
