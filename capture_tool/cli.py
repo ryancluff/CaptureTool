@@ -143,8 +143,8 @@ def cli():
         )
         # Save the processed recording data
         # Each channel is saved to a separate mono wav file
-        for i in range(len(interface.interface.channels["input"])):
-            channel = interface.interface.channels["input"][i]
+        for i in range(len(interface.channels["input"])):
+            channel = interface.channels["input"][i]
             wavio.write(
                 str(Path(capture_dir, f"recording-{channel}.wav")),
                 processed_recording[:, i],
