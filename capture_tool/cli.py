@@ -88,7 +88,6 @@ def cli():
 
     capture_parser = subparsers.add_parser("capture", help="Run a capture")
     capture_parser.add_argument("interface_config_path", type=str)
-    capture_parser.add_argument("device_config_path", nargs="?", type=str, default=None)
 
     reamp_parser = subparsers.add_parser("reamp", help="Loop reamp output without recording")
     reamp_parser.add_argument("interface_config_path", type=str)
@@ -122,8 +121,6 @@ def cli():
     elif args.command == "capture":
         # read configs, create dirs
         interface_config = _read_config(args.interface_config_path)
-        if args.device_config_path:
-            device_config = _read_config(args.device_config_path)
         captures_dir = _create_captures_dir()
         capture_dir = _create_capture_dir(captures_dir)
 
@@ -131,8 +128,6 @@ def cli():
         # Run calibration if needed
         interface_config["_send_level_dbu "] = _calibrate(interface)
         _write_config(capture_dir, interface_config)
-        if args.device_config_path:
-            _write_config(capture_dir, device_config, "device")
         raw_recording, processed_recording = interface.capture(plot_latency=True)
         # Save the raw recording to a single wav file
         # The number of channels in the wav file is equal to the number of input channels
