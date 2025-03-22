@@ -64,31 +64,22 @@ class AudioInterface:
         self,
         init_dbfs: float = -3.0,
     ) -> float:
-        num_output_channels = self.channels["reamp"]
-        num_input_channels = len(self.channels["input"])
-
         sine_wave = SineWave(self.frequency, self.samplerate, init_dbfs)
-        input_max = np.zeros(num_input_channels, dtype=np.int32)
 
         def callback(indata, outdata, frames, time, status):
             if status:
                 print(status, file=sys.stderr)
 
-            output = np.zeros((frames, num_output_channels), dtype=np.int32)
+            output = np.zeros((frames, self.num_output_channels), dtype=np.int32)
             for i in range(frames):
                 output[i, self.channels["reamp"] - 1] = next(sine_wave)
             outdata[:] = pack(output)
-
-            input = unpack(indata, num_input_channels)
-
-            nonlocal input_max
-            input_max[:] = np.max(np.abs(input), axis=0)
 
         stream = sd.RawStream(
             samplerate=self.samplerate,
             blocksize=self.blocksize,
             device=self.device,
-            channels=(num_input_channels, num_output_channels),
+            channels=(self.num_input_channels, self.num_output_channels),
             dtype="int24",
             callback=callback,
         )
