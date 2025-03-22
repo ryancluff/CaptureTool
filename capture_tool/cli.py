@@ -103,8 +103,9 @@ def cli():
     args = parser.parse_args()
     if args.command == "list-interfaces":
         if args.interface:
-            print(sd.query_devices(args.interface))
-            print("")
+            interface = sd.query_devices(args.interface)
+            for key, value in interface.items():
+                print(f"{key}: {value}")
             samplerates = [32000, 44100, 48000, 88200, 96000, 128000, 192000]
             supported_samplerates = []
             for fs in samplerates:
