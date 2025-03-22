@@ -168,7 +168,6 @@ def cli():
         elif args.type == "dbu":
             _calibrate(interface)
             interface.testtone_dbu()
-    print("done")
 
 
 if __name__ == "__main__":
