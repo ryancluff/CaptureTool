@@ -2,6 +2,8 @@ import math
 
 import numpy as np
 
+MAX_VAL_INT24 = 2 ** (24 - 1) - 1
+
 
 class SineWave:
     def __init__(
@@ -11,13 +13,12 @@ class SineWave:
         dbfs: float = -12.0,
     ):
         amplitude = 10 ** (dbfs / 20.0)
-        max_val = 2 ** (24 - 1) - 1
         self.samplerate = samplerate
         self.period = int(samplerate / frequency)
         self.lookup_table = np.array(
             [
                 int(
-                    max_val
+                    MAX_VAL_INT24
                     * amplitude
                     * math.sin(2.0 * math.pi * frequency * (float(i % self.period) / float(samplerate)))
                 )
@@ -77,4 +78,4 @@ def dbfs_to_dbu(dbfs: float, delta: float) -> float:
 
 # Convert 24 bit audio data to dBFS
 def int_to_dbfs(input_max: np.array) -> np.array:
-    return 20 * np.log10(input_max / (2 ** (24 - 1) - 1))
+    return 20 * np.log10(input_max / (MAX_VAL_INT24))
