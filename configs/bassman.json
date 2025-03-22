@@ -1,0 +1,43 @@
+{
+    "device": 0,
+    "channels": {
+        "input": [
+            "loopback",
+            "instrument"
+        ],
+        "reamp": 3
+    },
+    "output_level_max_dbu": 9.0,
+    "frequency": 1000,
+    "blocksize": 512,
+    "reamp_file": "inputs/v3_0_0.wav",
+    "samplerate": 48000,
+    "gear": {
+        "name": "Fender Tweed Bassman 2000 Reissue",
+        "gear_make": "Fender",
+        "gear_model": "Tweed Bassman 2000 Reissue",
+        "gear_type": "Guitar Amp",
+        "parameter_labels": [
+            "Presence",
+            "Middle",
+            "Bass",
+            "Treble",
+            "Volume Bright",
+            "Volume Normal"
+        ],
+        "parameter_values": [
+            6.5,
+            6.5,
+            6.5,
+            6.5,
+            1,
+            9.0
+        ],
+        "switch_labels": [
+            "input"
+        ],
+        "switch_values": [
+            1
+        ]
+    }
+}
