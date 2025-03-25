@@ -17,7 +17,7 @@ output_data_corrected = np.zeros(len(output_data))
 output_data_corrected[:-delay] = output_data[delay:]
 
 plt.figure(figsize=(16, 5))
-plt.plot(input_data, label="input")
+plt.plot(input_data, label="returns")
 plt.plot(output_data, linestyle="--", label="output")
 plt.plot(output_data_corrected, linestyle="-.", label="corrected output")
 plt.title(f"delay={delay}")
