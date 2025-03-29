@@ -1,5 +1,7 @@
-import json
 from argparse import ArgumentParser
+import json
+import matplotlib.pyplot as plt
+import numpy as np
 from pathlib import Path
 import sounddevice as sd
 import wavio
