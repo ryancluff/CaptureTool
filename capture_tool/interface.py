@@ -15,20 +15,18 @@ from capture_tool.audio import (
 from capture_tool.wave import SineWave
 
 
-class TestToneUnit(Enum):
-    DBFS = 0
-    DBU = 1
-
-
-class ClipException(Exception):
-    def __init__(self, channel, dbfs):
-        self.channel = channel
-        self.dbfs = dbfs
-        self.message = f"peak level of {dbfs} dBFS on channel {channel} exceeds 0 dBFS"
-        super().__init__(self.message)
-
-
 class AudioInterface:
+    class TestToneUnit(Enum):
+        DBFS = 0
+        DBU = 1
+
+    class ClipException(Exception):
+        def __init__(self, channel, dbfs):
+            self.channel = channel
+            self.dbfs = dbfs
+            self.message = f"peak level of {dbfs} dBFS on channel {channel} exceeds 0 dBFS"
+            super().__init__(self.message)
+
     def __init__(self, config: dict):
         # Capture settings
         self.capture_level_dbu = config.get("capture_level_dbu", 6.0)
@@ -284,15 +282,15 @@ class AudioInterface:
         output_level: float,
         unit: TestToneUnit = TestToneUnit.DBFS,
     ) -> tuple[sd.RawOutputStream, callable, callable, callable]:
-        if unit == TestToneUnit.DBFS and output_level > 0.0:
+        if unit == AudioInterface.TestToneUnit.DBFS and output_level > 0.0:
             raise ValueError("output level must be negative for dbfs test tone")
 
         num_output_channels = self.channels["reamp"]
 
         def get_output_level_dbfs():
-            if unit == TestToneUnit.DBFS:
+            if unit == AudioInterface.TestToneUnit.DBFS:
                 return output_level
-            elif unit == TestToneUnit.DBU:
+            elif unit == AudioInterface.TestToneUnit.DBU:
                 return self.send_dbfs_to_dbu(output_level)
 
         sine_wave = SineWave(self.frequency, self.samplerate, get_output_level_dbfs())

@@ -12,11 +12,8 @@ from capture_tool.audio import (
     calculate_latency,
     process_recordings,
 )
-from capture_tool.interface import (
-    ClipException,
-    TestToneUnit,
-    AudioInterface,
-)
+from capture_tool.interface import AudioInterface
+
 from capture_tool.util import timestamp
 
 
@@ -74,6 +71,9 @@ def _write_wav(path: Path, data: np.array, samplerate: int) -> None:
         samplerate,
         sampwidth=3,
     )
+
+def _upload_input(config_path: Path) -> None:
+    config = _read_config(config_path)
 
 
 def _calibrate_send(
@@ -162,13 +162,13 @@ def _plot_latency(
     plt.show(block=True)
 
 
-def _test_tone(config_path: Path, unit: TestToneUnit, level: float) -> None:
+def _test_tone(config_path: Path, unit: AudioInterface.TestToneUnit, level: float) -> None:
     config = _read_config(config_path)
     interface = AudioInterface(config)
-    if unit == TestToneUnit.DBFS:
+    if unit == AudioInterface.TestToneUnit.DBFS:
         if level is None:
             level = -3
-    elif unit == TestToneUnit.DBU:
+    elif unit == AudioInterface.TestToneUnit.DBU:
         _calibrate_send(interface, send_level_dbfs=-3.0)
         if level is None:
             level = 3
@@ -181,7 +181,7 @@ def _test_tone(config_path: Path, unit: TestToneUnit, level: float) -> None:
         print("enter 1 to increase output level, 2 to decrease output level, q to quit")
         control = "0"
         while control != "q":
-            print("output level: ", get_output_level_dbfs(), "dbfs" if unit == TestToneUnit.DBFS else "dbu")
+            print("output level: ", get_output_level_dbfs(), "dbfs" if unit == AudioInterface.TestToneUnit.DBFS else "dbu")
             if control == "1":
                 increase_output_level()
             elif control == "2":
@@ -214,7 +214,7 @@ def _capture(config_path: Path, no_show: bool = False) -> None:
                     peak_dbfs = int_to_dbfs(peak_levels)
                     for i in range(interface.num_returns):
                         if peak_dbfs[i] > 0:
-                            raise ClipException(i + 1, peak_dbfs[i])
+                            raise AudioInterface.ClipException(i + 1, peak_dbfs[i])
                     output_str = " | ".join(f"{dbu:3.2f}" for dbu in peak_dbfs)
                     current_seconds = get_frame() // interface.wav.rate
                     current_seconds = f"{current_seconds // 60:02d}:{current_seconds % 60:02d}"
@@ -222,7 +222,7 @@ def _capture(config_path: Path, no_show: bool = False) -> None:
                     total_seconds = f"{total_seconds // 60:02d}:{total_seconds % 60:02d}"
                     print(f"{current_seconds} / {total_seconds} - {output_str}          ")
             complete = True
-        except ClipException as e:
+        except AudioInterface.ClipException as e:
             print(e.message)
             print(f"decrease the return level gain on channel {e.channel} and restart capture")
             stream, get_frame, send_audio, return_audio, peak_levels, done = interface.get_capture_stream()
@@ -284,6 +284,9 @@ def cli():
     list_parser = subparsers.add_parser("list-interfaces")
     list_parser.add_argument("interface", nargs="?", type=int, default=None)
 
+    input_upload_parser = subparsers.add_parser("upload-input", help="Upload input file to forge api")
+    input_upload_parser.add_argument("config_path", type=str)
+
     testtone_parser = subparsers.add_parser("testtone", help="Generate a test tone")
     testtone_parser.add_argument("config_path", type=str)
     testtone_parser.add_argument("type", nargs="?", type=str, default="dbfs", choices=["dbfs", "dbu"])
@@ -296,6 +299,8 @@ def cli():
     args = parser.parse_args()
     if args.command == "list-interfaces":
         _print_interface(args.interface)
+    elif args.command == "upload-input":
+        pass
     elif args.command == "testtone":
         _test_tone(args.config_path, args.type, args.level)
     elif args.command == "capture":
