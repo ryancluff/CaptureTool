@@ -162,6 +162,37 @@ def _plot_latency(
     plt.show(block=True)
 
 
+def _test_tone(config_path: Path, unit: TestToneUnit, level: float) -> None:
+    config = _read_config(config_path)
+    interface = AudioInterface(config)
+    if unit == TestToneUnit.DBFS:
+        if level is None:
+            level = -3
+    elif unit == TestToneUnit.DBU:
+        _calibrate_send(interface, send_level_dbfs=-3.0)
+        if level is None:
+            level = 3
+
+    stream, get_output_level_dbfs, increase_output_level, decrease_output_level = interface.get_test_tone_stream(
+        level, unit
+    )
+
+    with stream:
+        print("enter 1 to increase output level, 2 to decrease output level, q to quit")
+        control = "0"
+        while control != "q":
+            print("output level: ", get_output_level_dbfs(), "dbfs" if unit == TestToneUnit.DBFS else "dbu")
+            if control == "1":
+                increase_output_level()
+            elif control == "2":
+                decrease_output_level()
+            elif control == "0" or control == "q":
+                pass
+            else:
+                print("invalid input")
+            control = input("> ")
+
+
 def _capture(config_path: Path, no_show: bool = False) -> None:
     config = _read_config(config_path)
     interface = AudioInterface(config)
@@ -246,37 +277,6 @@ def _capture(config_path: Path, no_show: bool = False) -> None:
     _write_config(capture_dir, interface.get_config())
 
 
-def _test_tone(config_path: Path, unit: TestToneUnit, level: float) -> None:
-    config = _read_config(config_path)
-    interface = AudioInterface(config)
-    if unit == TestToneUnit.DBFS:
-        if level is None:
-            level = -3
-    elif unit == TestToneUnit.DBU:
-        _calibrate_send(interface, send_level_dbfs=-3.0)
-        if level is None:
-            level = 3
-
-    stream, get_output_level_dbfs, increase_output_level, decrease_output_level = interface.get_test_tone_stream(
-        level, unit
-    )
-
-    with stream:
-        print("enter 1 to increase output level, 2 to decrease output level, q to quit")
-        control = "0"
-        while control != "q":
-            print("output level: ", get_output_level_dbfs(), "dbfs" if unit == TestToneUnit.DBFS else "dbu")
-            if control == "1":
-                increase_output_level()
-            elif control == "2":
-                decrease_output_level()
-            elif control == "0" or control == "q":
-                pass
-            else:
-                print("invalid input")
-            control = input("> ")
-
-
 def cli():
     parser = ArgumentParser(description="Capture tool")
     subparsers = parser.add_subparsers(dest="command")
@@ -284,22 +284,22 @@ def cli():
     list_parser = subparsers.add_parser("list-interfaces")
     list_parser.add_argument("interface", nargs="?", type=int, default=None)
 
-    capture_parser = subparsers.add_parser("capture", help="Run a capture")
-    capture_parser.add_argument("config_path", type=str)
-    capture_parser.add_argument("--no-show", action="store_true", help="Skip plotting latency info")
-
     testtone_parser = subparsers.add_parser("testtone", help="Generate a test tone")
     testtone_parser.add_argument("config_path", type=str)
     testtone_parser.add_argument("type", nargs="?", type=str, default="dbfs", choices=["dbfs", "dbu"])
     testtone_parser.add_argument("--level", type=float, required=False)
 
+    capture_parser = subparsers.add_parser("capture", help="Run a capture")
+    capture_parser.add_argument("config_path", type=str)
+    capture_parser.add_argument("--no-show", action="store_true", help="Skip plotting latency info")
+
     args = parser.parse_args()
     if args.command == "list-interfaces":
         _print_interface(args.interface)
-    elif args.command == "capture":
-        _capture(args.config_path, no_show=args.no_show)
     elif args.command == "testtone":
         _test_tone(args.config_path, args.type, args.level)
+    elif args.command == "capture":
+        _capture(args.config_path, no_show=args.no_show)
 
 
 if __name__ == "__main__":
