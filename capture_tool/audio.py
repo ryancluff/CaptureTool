@@ -5,69 +5,6 @@ import numpy as np
 MAX_VAL_INT24 = 2 ** (24 - 1) - 1
 
 
-class SineWave:
-    def __init__(
-        self,
-        frequency: float = 1000.0,
-        samplerate: int = 48000,
-        dbfs: float = -12.0,
-    ):
-        amplitude = 10 ** (dbfs / 20.0)
-        self.samplerate = samplerate
-        self.period = int(samplerate / frequency)
-        self.lookup_table = np.array(
-            [
-                int(
-                    MAX_VAL_INT24
-                    * amplitude
-                    * math.sin(2.0 * math.pi * frequency * (float(i % self.period) / float(samplerate)))
-                )
-                for i in range(self.period)
-            ]
-        )
-        self.position = 0
-
-    def __next__(self):
-        value = self.lookup_table[self.position % self.period]
-        self.position += 1
-        return value
-
-    def __iter__(self):
-        return self
-
-    def of_length(self, seconds: float = 2, samples: int = None) -> np.array:
-        if samples is not None:
-            return np.array([next(self) for _ in range(samples)])
-        return np.array([next(self) for _ in range(int(seconds * self.samplerate))])
-
-
-# Convert floating-point audio data to 24-bit data
-def pack(data: np.array) -> bytes:
-    return b"".join(
-        int(sample).to_bytes(
-            3,
-            byteorder="little",
-            signed=True,
-        )
-        for sample in data.flatten()
-    )
-
-
-# Convert 24-bit data to floating-point audio data
-def unpack(data: bytes, channels: int) -> np.array:
-    return np.array(
-        [
-            int.from_bytes(
-                data[i : i + 3],
-                byteorder="little",
-                signed=True,
-            )
-            for i in range(0, len(data), 3)
-        ],
-        dtype=np.int32,
-    ).reshape((-1, channels))
-
-
 def db_to_scalar(db: float) -> float:
     return 10 ** (db / 20)
 
