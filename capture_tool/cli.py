@@ -93,21 +93,35 @@ def _calibrate(interface: AudioInterface) -> tuple[float, float]:
         print(f"calculated reamp -> input deltas (dbfs): {interface._send_level_dbu:.2f}")
         print("calibration complete")
     else:
-        _return_level_dbu = interface._return_level_dbu
-        print("input calibration not required")
-        print(f"configured reamp -> input deltas (dbfs): {interface._return_level_dbu:.2f}")
+def _test_tone(config_path: Path, unit: TestToneUnit, level: float) -> None:
+    config = _read_config(config_path)
+    interface = AudioInterface(config)
+    if unit == TestToneUnit.DBFS:
+        if level is None:
+            level = -3
+    elif unit == TestToneUnit.DBU:
+        _calibrate_send(interface, send_level_dbfs=-3.0)
+        if level is None:
+            level = 3
 
-    if calibration_changed:
-        print("calibration values saved to interface config in capture directory")
-        print("copy these values to the supplied interface config file to skip calibration in the future")
-        print("recalibrate following any settings (gain) or hardware changes")
-        input("press enter to continue...")
+    stream, get_output_level_dbfs, increase_output_level, decrease_output_level = interface.get_test_tone_stream(
+        level, unit
+    )
 
-    return _send_level_dbu, _return_level_dbu
-
-
-def _passthrough(interface: AudioInterface) -> None:
-    interface.passthrough()
+    with stream:
+        print("enter 1 to increase output level, 2 to decrease output level, q to quit")
+        control = "0"
+        while control != "q":
+            print("output level: ", get_output_level_dbfs(), "dbfs" if unit == TestToneUnit.DBFS else "dbu")
+            if control == "1":
+                increase_output_level()
+            elif control == "2":
+                decrease_output_level()
+            elif control == "0" or control == "q":
+                pass
+            else:
+                print("invalid input")
+            control = input("> ")
 
 
 def cli():
@@ -173,17 +187,7 @@ def cli():
         interface_config["_send_level_dbu "], interface_config["_return_level_dbu"] = _calibrate(interface)
         _passthrough(interface)
     elif args.command == "testtone":
-        interface_config = _read_config(args.interface_config_path)
-        interface = AudioInterface(interface_config)
-        if args.type == "dbfs":
-            if args.level is None:
-                args.level = -3
-            interface.testtone(args.level, unit=TestToneUnit.DBFS)
-        elif args.type == "dbu":
-            _calibrate(interface)
-            if args.level is None:
-                args.level = 3
-            interface.testtone(args.level, unit=TestToneUnit.DBU)
+        _test_tone(args.config_path, args.type, args.level)
 
 
 if __name__ == "__main__":
