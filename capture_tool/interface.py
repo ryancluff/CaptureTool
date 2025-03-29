@@ -9,23 +9,10 @@ import sounddevice as sd
 import wavio
 
 from capture_tool.audio import (
-    SineWave,
-    pack,
-    unpack,
-    v_rms_to_dbu,
     db_to_scalar,
-    dbu_to_dbfs,
-    dbfs_to_dbu,
-    int_to_dbfs,
 )
 
-LATENCY_OFFSET = 0
-
-
-class LatencyAdjustment(Enum):
-    NONE = 0
-    BASE = 1
-    INDIVIDUAL = 2
+from capture_tool.wave import SineWave
 
 
 class TestToneUnit(Enum):
@@ -33,234 +20,270 @@ class TestToneUnit(Enum):
     DBU = 1
 
 
+class ClipException(Exception):
+    def __init__(self, channel, dbfs):
+        self.channel = channel
+        self.dbfs = dbfs
+        self.message = f"peak level of {dbfs} dBFS on channel {channel} exceeds 0 dBFS"
+        super().__init__(self.message)
+
+
 class AudioInterface:
     def __init__(self, config: dict):
-        self.input_wav = wavio.read(config["reamp_file"])
-        self.send_level_dbu = config["reamp_level_dbu"]
+        # Capture settings
+        self.capture_level_dbu = config.get("capture_level_dbu", 6.0)
+        self.reamp_file = config.get("reamp_file", "v3_0_0.wav")
+        self.wav = wavio.read(self.reamp_file)
+        self.samplerate = self.wav.rate
 
         # Interface configuration
         self.device = config.get("device", sd.default.device)
-        self.samplerate = config.get("samplerate", self.input_wav.rate)
+        self.device_info = sd.query_devices(self.device)
         self.blocksize = config.get("blocksize", 256)
-        self.channels = config.get("channels", {})
-        self.num_output_channels = self.channels["reamp"]
-        self.num_input_channels = len(self.channels["input"])
+        self.channels = config.get("channels", {"returns": ["channel 1"], "reamp": 1})
+        self.num_sends = self.channels["reamp"]
+        self.num_returns = len(self.channels["returns"])
 
         # Calibration settings
-        self.output_level_max_dbu = config.get("output_level_max_dbu", 6.0)
         self.frequency = config.get("frequency", 1000)
-
-        # Interface calibration results
-        # dB adjustments for dBu to dBFS conversion
-        # (dbu - dbfs = delta)
 
         # Optional calibration values
         # The level (dBu) being sent from the interface to the gear corresponding to a 1kHz sine wave with 0dBFS peak
         self._send_level_dbu = config.get("_send_level_dbu ", None)
-        # The level (dBu) returned from the device to the interface corresponding to a 1kHz sine wave with 0dBFS peak
-        self._return_level_dbu = config.get("_return_level_dbu", None)
+        # The levels (dBu) returned from the device to the interface corresponding to a 1kHz sine wave with 0dBFS peak
+        self._return_levels_dbu = config.get("_return_levels_dbu", None)
 
-    def calibrate_reamp(
+        # Device information
+        self.device_info = sd.query_devices(self.device, "input")
+
+    def get_config(self) -> dict:
+        return {
+            "capture_level_dbu": self.capture_level_dbu,
+            "reamp_file": self.reamp_file,
+            "__samplerate": self.samplerate,
+            "device": self.device,
+            "blocksize": self.blocksize,
+            "channels": self.channels,
+            "__num_sends": self.num_sends,
+            "__num_returns": self.num_returns,
+            "frequency": self.frequency,
+            "_send_level_dbu": self._send_level_dbu,
+            "_return_levels_dbu": self._return_levels_dbu.tolist() if self._return_levels_dbu is not None else None,
+        }
+
+    def set_send_level_dbu(
         self,
-        init_dbfs: float = -3.0,
+        measured_send_level_dbu: float,
+        send_level_dbfs: float = 0.0,
+    ):
+        self._send_level_dbu = measured_send_level_dbu - send_level_dbfs
+
+    def set_return_level_dbu(
+        self,
+        send_level_dbu: float,
+        return_level_dbfs: float,
+        channel: int,
+    ):
+        if self._return_levels_dbu is None:
+            self._return_levels_dbu = np.zeros(self.num_returns, dtype=np.float32)
+        self._return_levels_dbu[channel - 1] = send_level_dbu - return_level_dbfs
+
+    # Convert send level dBu to dBFS
+    def send_dbu_to_dbfs(self, send_level_dbu: float) -> float:
+        if self._send_level_dbu is None:
+            raise RuntimeError("send levels not set. exitting...")
+        return send_level_dbu - self._send_level_dbu
+
+    # Convert send level dBFS to dBu
+    def send_dbfs_to_dbu(self, send_level_dbfs: float) -> float:
+        if self._send_level_dbu is None:
+            raise RuntimeError("send levels not set. exitting...")
+        return send_level_dbfs + self._send_level_dbu
+
+    # Convert return level dBu to dBFS for the given channel
+    def _return_dbu_to_dbfs(
+        self,
+        return_level_dbu: float,
+        channel: int,
     ) -> float:
-        sine_wave = SineWave(self.frequency, self.samplerate, init_dbfs)
+        if self._return_levels_dbu is None:
+            raise RuntimeError("return levels not set. exitting...")
+        return return_level_dbu - self._return_levels_dbu[channel - 1]
+
+    # Convert return level dBFS to dBu for the given channel
+    def _return_dbfs_to_dbu(
+        self,
+        return_level_dbfs: float,
+        channel: int,
+    ) -> float:
+        if self._return_levels_dbu is None:
+            raise RuntimeError("return levels not set. exitting...")
+        return return_level_dbfs + self._return_levels_dbu[channel - 1]
+
+    # Convert floating-point audio data to 24-bit data
+    @classmethod
+    def pack(cls, data: np.array) -> bytes:
+        return b"".join(
+            int(sample).to_bytes(
+                3,
+                byteorder="little",
+                signed=True,
+            )
+            for sample in data.flatten()
+        )
+
+    # Convert 24-bit data to floating-point audio data
+    @classmethod
+    def unpack(cls, data: bytes, channels: int) -> np.array:
+        return np.array(
+            [
+                int.from_bytes(
+                    data[i : i + 3],
+                    byteorder="little",
+                    signed=True,
+                )
+                for i in range(0, len(data), 3)
+            ],
+            dtype=np.int32,
+        ).reshape((-1, channels))
+
+    def get_send_calibration_stream(
+        self,
+        send_level_dbfs: float = -3.0,
+    ) -> sd.RawOutputStream:
+        sine_wave = SineWave(self.frequency, self.samplerate, send_level_dbfs)
+
+        def callback(outdata, frames, time, status):
+            if status:
+                print(status, file=sys.stderr)
+            output = np.zeros((frames, self.num_sends), dtype=np.int32)
+            output[:, self.channels["reamp"] - 1] = sine_wave.of_length(samples=frames)
+            outdata[:] = self.pack(output)
+
+        stream = sd.RawOutputStream(
+            samplerate=self.samplerate,
+            blocksize=self.blocksize,
+            device=self.device,
+            channels=self.num_sends,
+            dtype="int24",
+            callback=callback,
+        )
+
+        return stream
+
+    def get_return_calibration_stream(
+        self,
+        send_level_dbfs: float = -3.0,
+    ) -> tuple[sd.RawStream, np.array, threading.Event]:
+        frame = 0
+        sine_wave = SineWave(self.frequency, self.samplerate, send_level_dbfs).of_length(seconds=2)
+        peak_levels = np.zeros(self.num_returns, dtype=np.int32)
+        done = threading.Event()
 
         def callback(indata, outdata, frames, time, status):
             if status:
                 print(status, file=sys.stderr)
 
-            output = np.zeros((frames, self.num_output_channels), dtype=np.int32)
-            for i in range(frames):
-                output[i, self.channels["reamp"] - 1] = next(sine_wave)
-            outdata[:] = pack(output)
+            nonlocal frame
+            chunksize = min(len(sine_wave) - frame, frames)
+
+            # write the reamp data to the interface output channel
+            output = np.zeros((frames, self.num_sends))
+            output[:chunksize, self.channels["reamp"] - 1] = sine_wave[frame : frame + chunksize].flatten()
+            outdata[:] = self.pack(output)
+
+            levels = np.max(np.abs(self.unpack(indata, self.num_returns)), axis=0)
+            for i in range(self.num_returns):
+                if levels[i] > peak_levels[i]:
+                    peak_levels[i] = levels[i]
+
+            # increment the frame count and stop if the end of the clip is reached
+            frame += frames
+            if frame >= len(sine_wave):
+                raise sd.CallbackStop()
 
         stream = sd.RawStream(
             samplerate=self.samplerate,
             blocksize=self.blocksize,
             device=self.device,
-            channels=(self.num_input_channels, self.num_output_channels),
+            channels=(self.num_returns, self.num_sends),
             dtype="int24",
             callback=callback,
+            finished_callback=done.set,
         )
 
-        with stream:
-            reamp_v_rms = float(input(f"enter measured rms voltage: "))
-            reamp_dbu = v_rms_to_dbu(reamp_v_rms)
-            self._send_level_dbu = reamp_dbu - init_dbfs
-            target_dbfs = dbu_to_dbfs(self.output_level_max_dbu, self._send_level_dbu)
+        return stream, peak_levels, done
 
-            while reamp_dbu - self.output_level_max_dbu > 0.001:
-                sine_wave = SineWave(self.frequency, self.samplerate, target_dbfs)
-                reamp_v_rms = float(input("enter new rms voltage: "))
-                reamp_dbu = v_rms_to_dbu(reamp_v_rms)
-                self._send_level_dbu = reamp_dbu - init_dbfs
-                target_dbfs = dbu_to_dbfs(self.output_level_max_dbu, self._send_level_dbu)
-
-        return self._send_level_dbu
-
-    def calibrate_inputs(
+    def get_capture_stream(
         self,
-        test_dbfs: float = -3.0,
-    ) -> list[float]:
-        self._return_level_dbu = np.zeros(self.num_input_channels, dtype=np.float32)
-
-        sine_wave_short = SineWave(self.frequency, self.samplerate, test_dbfs).of_length(seconds=2)
-
-        def callback(indata, outdata, frames, time, status):
-            if status:
-                print(status, file=sys.stderr)
-
-            nonlocal current_frame
-            chunksize = min(len(sine_wave_short) - current_frame, frames)
-
-            # write the reamp data to the interface output channel
-            output = np.zeros((frames, self.num_output_channels))
-            output[:chunksize, self.channels["reamp"] - 1] = sine_wave_short[
-                current_frame : current_frame + chunksize
-            ].flatten()
-            outdata[:] = pack(output)
-
-            # read the recording data from the interface input channels
-            nonlocal recording_levels
-            input = unpack(indata, self.num_input_channels)
-            recording_levels[:] = np.max(np.abs(input), axis=0)
-
-            current_frame += frames
-            if current_frame >= len(sine_wave_short):
-                raise sd.CallbackStop()
-
-        for i in range(self.num_input_channels):
-            current_frame = 0
-            recording_levels = np.zeros(self.num_input_channels, dtype=np.int32)
-            recording_done = threading.Event()
-            stream = sd.RawStream(
-                samplerate=self.samplerate,
-                blocksize=self.blocksize,
-                device=self.device,
-                channels=(self.num_input_channels, self.num_output_channels),
-                dtype="int24",
-                callback=callback,
-                finished_callback=recording_done.set,
-            )
-            input(f"channel {i} - press enter to continue")
-            with stream:
-                while not recording_done.wait(timeout=1.0):
-                    pass
-            self._return_level_dbu[i] = int_to_dbfs(recording_levels[i]) - test_dbfs
-
-        return self._return_level_dbu
-
-    def capture(
-        self,
-        plot_latency: bool = False,
-        latency_adjustment: LatencyAdjustment = LatencyAdjustment.BASE,
-        inversion_adjustment: bool = True,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        if self._send_level_dbu is None:
-            raise RuntimeError("reamp not calibrated. exitting...")
-
+    ) -> tuple[
+        sd.RawStream,
+        callable,
+        np.array,
+        np.array,
+        np.array,
+        threading.Event,
+    ]:
+        frame = 0
         # scale the reamp data using the reamp delta to output at the proper level
-        reamp_audio = np.array(self.input_wav.data * db_to_scalar(0 - self._send_level_dbu), dtype=np.int32)
-        # append 10 blocks of zeros to the end of the input data to account for latency
-        raw_recording = np.zeros((len(reamp_audio) + 10 * self.blocksize, self.num_input_channels), dtype=np.int32)
+        send_audio = np.array(self.wav.data * db_to_scalar(0 - self._send_level_dbu), dtype=np.int32)
+        # append 10 blocks of zeros to the end of the return data to account for latency
+        return_audio = np.zeros((len(send_audio) + 10 * self.blocksize, self.num_returns), dtype=np.int32)
+        peak_levels = np.zeros(self.num_returns, dtype=np.int32)
+        done = threading.Event()
 
-        current_frame = 0
-        recording_levels = np.zeros(self.num_input_channels, dtype=np.int32)
-        recording_done = threading.Event()
+        def get_frame() -> int:
+            return frame
 
         def callback(indata, outdata, frames, time, status):
             if status:
                 print(status, file=sys.stderr)
 
-            nonlocal recording_levels
-            nonlocal current_frame
-            chunksize = min(len(reamp_audio) - current_frame, frames)
+            nonlocal frame
+            chunksize = min(len(send_audio) - frame, frames)
 
             # write the reamp data to the interface output channel
-            output = np.zeros((frames, self.num_output_channels))
-            output[:chunksize, self.channels["reamp"] - 1] = reamp_audio[
-                current_frame : current_frame + chunksize
-            ].flatten()
-            outdata[:] = pack(output)
+            output = np.zeros((frames, self.num_sends))
+            output[:chunksize, self.channels["reamp"] - 1] = send_audio[frame : frame + chunksize].flatten()
+            outdata[:] = self.pack(output)
 
-            # read the recording data from the interface input channels
-            input = unpack(indata, self.num_input_channels)
-            raw_recording[current_frame : current_frame + frames] = input
+            # read the recording data from the interface return channels
+            input = self.unpack(indata, self.num_returns)
+            return_audio[frame : frame + frames] = input
 
-            recording_levels[:] = np.max(np.abs(input), axis=0)
-            current_frame += frames
-            if current_frame >= len(reamp_audio):
+            levels = np.max(np.abs(input), axis=0)
+            for i in range(self.num_returns):
+                if levels[i] > peak_levels[i]:
+                    peak_levels[i] = levels[i]
+
+            frame += frames
+            if frame >= len(send_audio):
                 raise sd.CallbackStop()
 
         stream = sd.RawStream(
-            samplerate=self.input_wav.rate,
+            samplerate=self.samplerate,
             blocksize=self.blocksize,
             device=self.device,
-            channels=(self.num_input_channels, self.num_output_channels),
+            channels=(self.num_returns, self.num_sends),
             dtype="int24",
             callback=callback,
-            finished_callback=recording_done.set,
+            finished_callback=done.set,
         )
 
-        peak_levels = np.zeros(self.num_input_channels, dtype=np.int32)
-        with stream:
-            while not recording_done.wait(timeout=1.0):
-                for i in range(self.num_input_channels):
-                    if recording_levels[i] > peak_levels[i]:
-                        peak_levels[i] = recording_levels[i]
-                peak_dbfs = int_to_dbfs(peak_levels)
-                output_str = " | ".join(f"{dbu:3.2f}" for dbu in peak_dbfs)
-                current_seconds = current_frame // self.input_wav.rate
-                current_seconds = f"{current_seconds // 60:02d}:{current_seconds % 60:02d}"
-                total_seconds = len(self.input_wav.data) // self.input_wav.rate
-                total_seconds = f"{total_seconds // 60:02d}:{total_seconds % 60:02d}"
-                print(f"{current_seconds} / {total_seconds} - {output_str}          ")
-
-        channel_delays, channel_inversions = self._calculate_latency(reamp_audio, raw_recording)
-
-        processed_recording = self._process_recordings(
-            reamp_audio,
-            raw_recording,
-            channel_delays,
-            channel_inversions,
-            inversion_adjustment=inversion_adjustment,
-            latency_adjustment=latency_adjustment,
+        return (
+            stream,
+            get_frame,
+            send_audio,
+            return_audio,
+            peak_levels,
+            done,
         )
 
-        if plot_latency:
-            for i in range(self.num_input_channels):
-                samples = self.input_wav.rate * 5
-                plt.figure(figsize=(16, 5))
-                plt.plot(
-                    reamp_audio[:samples] / np.max(reamp_audio[:samples]),
-                    label="reamp",
-                )
-                plt.plot(
-                    raw_recording[:samples, i] / np.max(raw_recording[:samples, i]),
-                    linestyle="--",
-                    label="raw recording",
-                )
-                plt.plot(
-                    processed_recording[:samples, i] / np.max(processed_recording[:samples, i]),
-                    linestyle="-.",
-                    label="processed recording",
-                )
-                plt.title(
-                    f"channel={i} | base delay={channel_delays[0]} | channel_delay={channel_delays[i]} | invert={channel_inversions[i]}"
-                )
-                plt.legend()
-                plt.show(block=True)
-
-        return raw_recording, processed_recording
-
-    def testtone(
+    def get_testtone_stream(
         self,
         output_level: float,
         unit: TestToneUnit = TestToneUnit.DBFS,
-    ):
-        if unit == TestToneUnit.DBU and self._send_level_dbu is None:
-            raise RuntimeError("reamp not calibrated. exitting...")
+    ) -> tuple[sd.RawOutputStream, callable, callable, callable]:
         if unit == TestToneUnit.DBFS and output_level > 0.0:
             raise ValueError("output level must be negative for dbfs test tone")
 
@@ -270,18 +293,28 @@ class AudioInterface:
             if unit == TestToneUnit.DBFS:
                 return output_level
             elif unit == TestToneUnit.DBU:
-                return dbfs_to_dbu(output_level, self._send_level_dbu)
+                return self.send_dbfs_to_dbu(output_level)
 
         sine_wave = SineWave(self.frequency, self.samplerate, get_output_level_dbfs())
+
+        def increase_output_level():
+            nonlocal output_level
+            output_level += 1
+            nonlocal sine_wave
+            sine_wave = SineWave(self.frequency, self.samplerate, get_output_level_dbfs())
+
+        def decrease_output_level():
+            nonlocal output_level
+            output_level -= 1
+            nonlocal sine_wave
+            sine_wave = SineWave(self.frequency, self.samplerate, get_output_level_dbfs())
 
         def callback(outdata, frames, time, status):
             if status:
                 print(status, file=sys.stderr)
-
             output = np.zeros((frames, num_output_channels), dtype=np.int32)
-            for i in range(frames):
-                output[i, self.channels["reamp"] - 1] = next(sine_wave)
-            outdata[:] = pack(output)
+            output[:, self.channels["reamp"] - 1] = sine_wave.of_length(samples=frames)
+            outdata[:] = self.pack(output)
 
         stream = sd.RawOutputStream(
             samplerate=self.samplerate,
@@ -292,29 +325,14 @@ class AudioInterface:
             callback=callback,
         )
 
-        with stream:
-            print("enter 1 to increase output level, 2 to decrease output level, q to quit")
-            control = "0"
-            while control != "q":
-                print("output level: ", output_level, "dbfs" if unit == TestToneUnit.DBFS else "dbu")
-                if control == "1":
-                    output_level += 1
-                    sine_wave = SineWave(self.frequency, self.samplerate, get_output_level_dbfs())
-                elif control == "2":
-                    output_level -= 1
-                    sine_wave = SineWave(self.frequency, self.samplerate, get_output_level_dbfs())
-                elif control == "0" or control == "q":
-                    pass
-                else:
-                    print("invalid input")
-                control = input("> ")
+        return stream, get_output_level_dbfs, increase_output_level, decrease_output_level
 
     def reamp(self):
         if self._send_level_dbu is None:
             raise RuntimeError("reamp not calibrated. exitting...")
 
         # scale the reamp data using the reamp delta to output at the proper level
-        reamp_audio = np.array(self.input_wav.data * db_to_scalar(0 - self._send_level_dbu), dtype=np.int32)
+        reamp_audio = np.array(self.wav.data * db_to_scalar(0 - self._send_level_dbu), dtype=np.int32)
 
         current_frame = 0
         recording_done = threading.Event()
@@ -327,21 +345,21 @@ class AudioInterface:
             chunksize = min(len(reamp_audio) - current_frame, frames)
 
             # write the reamp data to the interface output channel
-            output = np.zeros((frames, self.num_output_channels))
+            output = np.zeros((frames, self.num_sends))
             output[:chunksize, self.channels["reamp"] - 1] = reamp_audio[
                 current_frame : current_frame + chunksize
             ].flatten()
-            outdata[:] = pack(output)
+            outdata[:] = self.pack(output)
 
             current_frame += frames
             if current_frame >= len(reamp_audio):
                 raise sd.CallbackStop()
 
         stream = sd.RawOutputStream(
-            samplerate=self.input_wav.rate,
+            samplerate=self.wav.rate,
             blocksize=self.blocksize,
             device=self.device,
-            channels=(self.num_input_channels, self.num_output_channels),
+            channels=(self.num_returns, self.num_sends),
             dtype="int24",
             callback=callback,
             finished_callback=recording_done.set,
@@ -349,9 +367,9 @@ class AudioInterface:
 
         with stream:
             while not recording_done.wait(timeout=1.0):
-                current_seconds = current_frame // self.input_wav.rate
+                current_seconds = current_frame // self.wav.rate
                 current_seconds = f"{current_seconds // 60:02d}:{current_seconds % 60:02d}"
-                total_seconds = len(self.input_wav.data) // self.input_wav.rate
+                total_seconds = len(self.wav.data) // self.wav.rate
                 total_seconds = f"{total_seconds // 60:02d}:{total_seconds % 60:02d}"
                 print(f"{current_seconds} / {total_seconds}")
 
@@ -366,7 +384,7 @@ class AudioInterface:
             samplerate=self.samplerate,
             blocksize=self.blocksize,
             device=self.device,
-            channels=(self.num_input_channels, self.num_output_channels),
+            channels=(self.num_returns, self.num_sends),
             dtype="int24",
             callback=callback,
         )
