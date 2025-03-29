@@ -7,7 +7,7 @@ MAX_VAL_INT24 = 2 ** (24 - 1) - 1
 
 
 def db_to_scalar(db: float) -> float:
-    return 10 ** (db / 20)
+    return 10 ** (db / 20.0)
 
 
 # Convert RMS voltage to dBu
