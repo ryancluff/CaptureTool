@@ -20,6 +20,25 @@ from capture_tool.interface import (
 from capture_tool.util import timestamp
 
 
+def _print_interface(device: int = None) -> None:
+    if device:
+        interface = sd.query_devices(device)
+        for key, value in interface.items():
+            print(f"{key}: {value}")
+        samplerates = [32000, 44100, 48000, 88200, 96000, 128000, 192000]
+        supported_samplerates = []
+        for fs in samplerates:
+            try:
+                sd.check_output_settings(device=device, samplerate=fs)
+            except Exception as e:
+                pass
+            else:
+                supported_samplerates.append(fs)
+        print("supported samplerates: " + str(supported_samplerates))
+    else:
+        print(sd.query_devices())
+
+
 def _read_config(path: Path) -> dict:
     with open(path, "r") as fp:
         config = json.load(fp)
@@ -114,22 +133,7 @@ def cli():
 
     args = parser.parse_args()
     if args.command == "list-interfaces":
-        if args.interface:
-            interface = sd.query_devices(args.interface)
-            for key, value in interface.items():
-                print(f"{key}: {value}")
-            samplerates = [32000, 44100, 48000, 88200, 96000, 128000, 192000]
-            supported_samplerates = []
-            for fs in samplerates:
-                try:
-                    sd.check_output_settings(device=args.interface, samplerate=fs)
-                except Exception as e:
-                    pass
-                else:
-                    supported_samplerates.append(fs)
-            print("supported samplerates: " + str(supported_samplerates))
-        else:
-            print(sd.query_devices())
+        _print_interface(args.interface)
     elif args.command == "capture":
         # read configs, create dirs
         interface_config = _read_config(args.interface_config_path)
