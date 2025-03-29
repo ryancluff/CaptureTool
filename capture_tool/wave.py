@@ -15,28 +15,28 @@ class Wave:
     def int_to_dbfs(cls, max_val: np.array) -> np.array:
         return 20 * np.log10(max_val / (cls.MAX_VAL_INT24))
 
-    def __init__(
-        self,
-        samplerate: int = 48000,
-        dbfs: float = 0.0,
-        loop: bool = False,
-    ):
-        self.position = 0
+    def __init__(self, samplerate: int, dbfs: float, loop: bool):
+        if type(self) is Wave:
+            raise Exception("Wave is an abstract class and cannot be instantiated directly")
+
+        self.frame = 0
         self.samplerate = samplerate
         self.dbfs = dbfs
         self.loop = loop
+        self.lookup_table = None
+        self.len = None
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        if self.position >= len(self.lookup_table):
+        if self.frame >= len(self.lookup_table):
             if self.loop:
-                self.position = 0
+                self.frame = 0
             else:
                 raise StopIteration
-        value = self.lookup_table[self.position]
-        self.position += 1
+        value = self.lookup_table[self.frame]
+        self.frame += 1
         return value
 
     def of_length(self, seconds: float = 2, samples: int = None) -> np.array:
@@ -53,20 +53,16 @@ class SineWave(Wave):
         dbfs: float = -12.0,
         loop: bool = True,
     ):
-        super().__init__(
-            samplerate=samplerate,
-            dbfs=dbfs,
-            loop=loop,
-        )
-        self.period = int(samplerate / frequency)
+        super().__init__(samplerate, dbfs, loop)
+        self.len = int(samplerate / frequency)
         self.lookup_table = np.array(
             [
                 int(
                     self.MAX_VAL_INT24
                     * self.db_to_scalar(dbfs)
-                    * math.sin(2.0 * math.pi * frequency * (float(i % self.period) / float(samplerate)))
+                    * math.sin(2.0 * math.pi * frequency * (float(i % self.len) / float(samplerate)))
                 )
-                for i in range(self.period)
+                for i in range(self.len)
             ]
         )
 
@@ -79,10 +75,6 @@ class AudioWave(Wave):
         dbfs: float = 0.0,
         loop: bool = False,
     ):
-        super().__init__(
-            samplerate=samplerate,
-            dbfs=dbfs,
-            loop=loop,
-        )
-        self.period = len(audio)
+        super().__init__(samplerate, dbfs, loop)
+        self.len = len(audio)
         self.lookup_table = self.db_to_scalar(dbfs) * audio
