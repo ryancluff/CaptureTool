@@ -181,7 +181,11 @@ def _test_tone(config_path: Path, unit: AudioInterface.TestToneUnit, level: floa
         print("enter 1 to increase output level, 2 to decrease output level, q to quit")
         control = "0"
         while control != "q":
-            print("output level: ", get_output_level_dbfs(), "dbfs" if unit == AudioInterface.TestToneUnit.DBFS else "dbu")
+            print(
+                "output level: ",
+                get_output_level_dbfs(),
+                " dbfs" if unit == AudioInterface.TestToneUnit.DBFS else "dbu",
+            )
             if control == "1":
                 increase_output_level()
             elif control == "2":
