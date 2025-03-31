@@ -39,7 +39,7 @@ def _print_interface(device: int = None) -> None:
 def _read_config(path: Path) -> dict:
     with open(path, "r") as fp:
         config = json.load(fp)
-        config["path"] = str(path)
+        config["config_path"] = str(path)
     return config
 
 
