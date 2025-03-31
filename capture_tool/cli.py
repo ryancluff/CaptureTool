@@ -17,23 +17,26 @@ from capture_tool.interface import AudioInterface
 from capture_tool.util import timestamp
 
 
-def _print_interface(device: int = None) -> None:
-    if device:
-        interface = sd.query_devices(device)
-        for key, value in interface.items():
-            print(f"{key}: {value}")
-        samplerates = [32000, 44100, 48000, 88200, 96000, 128000, 192000]
-        supported_samplerates = []
-        for fs in samplerates:
-            try:
-                sd.check_output_settings(device=device, samplerate=fs)
-            except Exception as e:
-                pass
-            else:
-                supported_samplerates.append(fs)
-        print("supported samplerates: " + str(supported_samplerates))
-    else:
-        print(sd.query_devices())
+def _print_interfaces() -> None:
+    print(sd.query_devices())
+
+
+def _print_interface(device: int) -> None:
+    if device == -1:
+        device = sd.default.device
+    interface = sd.query_devices(device)
+    for key, value in interface.items():
+        print(f"{key}: {value}")
+    samplerates = [32000, 44100, 48000, 88200, 96000, 128000, 192000]
+    supported_samplerates = []
+    for fs in samplerates:
+        try:
+            sd.check_output_settings(device=device, samplerate=fs)
+        except Exception as e:
+            pass
+        else:
+            supported_samplerates.append(fs)
+    print("supported samplerates: " + str(supported_samplerates))
 
 
 def _read_config(path: Path) -> dict:
@@ -291,8 +294,9 @@ def cli():
     parser = ArgumentParser(description="Capture tool")
     subparsers = parser.add_subparsers(dest="command")
 
-    list_parser = subparsers.add_parser("list-interfaces")
-    list_parser.add_argument("interface", nargs="?", type=int, default=None)
+    subparsers.add_parser("interfaces", help="List audio interfaces")
+    interface_parser = subparsers.add_parser("interface")
+    interface_parser.add_argument("interface", nargs="?", type=int, default=-1, help="interface id")
 
     input_upload_parser = subparsers.add_parser("input-new", help="Upload input file to forge api")
     input_upload_parser.add_argument("api_config_path", type=str)
@@ -308,7 +312,9 @@ def cli():
     capture_parser.add_argument("--no-show", action="store_true", help="Skip plotting latency info")
 
     args = parser.parse_args()
-    if args.command == "list-interfaces":
+    if args.command == "interfaces":
+        _print_interfaces()
+    elif args.command == "interface":
         _print_interface(args.interface)
     elif args.command == "input-new":
         _upload_input(args.api_config_path, args.input_config_path)
