@@ -288,8 +288,9 @@ def cli():
     list_parser = subparsers.add_parser("list-interfaces")
     list_parser.add_argument("interface", nargs="?", type=int, default=None)
 
-    input_upload_parser = subparsers.add_parser("upload-input", help="Upload input file to forge api")
-    input_upload_parser.add_argument("config_path", type=str)
+    input_upload_parser = subparsers.add_parser("input-new", help="Upload input file to forge api")
+    input_upload_parser.add_argument("api_config_path", type=str)
+    input_upload_parser.add_argument("input_config_path", type=str)
 
     testtone_parser = subparsers.add_parser("testtone", help="Generate a test tone")
     testtone_parser.add_argument("config_path", type=str)
@@ -303,8 +304,8 @@ def cli():
     args = parser.parse_args()
     if args.command == "list-interfaces":
         _print_interface(args.interface)
-    elif args.command == "upload-input":
-        pass
+    elif args.command == "input-new":
+        _upload_input(args.api_config_path, args.input_config_path)
     elif args.command == "testtone":
         _test_tone(args.config_path, args.type, args.level)
     elif args.command == "capture":
