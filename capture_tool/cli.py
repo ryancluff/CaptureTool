@@ -12,8 +12,8 @@ from capture_tool.audio import (
     calculate_latency,
     process_recordings,
 )
+from capture_tool.forge_api import ForgeApi
 from capture_tool.interface import AudioInterface
-
 from capture_tool.util import timestamp
 
 
@@ -72,8 +72,14 @@ def _write_wav(path: Path, data: np.array, samplerate: int) -> None:
         sampwidth=3,
     )
 
-def _upload_input(config_path: Path) -> None:
-    config = _read_config(config_path)
+
+def _upload_input(api_config_path: Path, input_config_path: Path) -> None:
+    api_config = _read_config(api_config_path)
+    input = _read_config(input_config_path)
+    api = ForgeApi(api_config)
+    id = api.post_input(input)
+    print(f"input uploaded with id: {id}")
+
 
 
 def _calibrate_send(
