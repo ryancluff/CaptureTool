@@ -12,7 +12,7 @@ from capture_tool.audio import (
     calculate_latency,
     process_recordings,
 )
-from capture_tool.forge_api import ForgeApi
+from capture_tool.forge_api import ForgeInput, ForgeSession, ForgeCapture, ForgeApi
 from capture_tool.interface import AudioInterface
 from capture_tool.util import timestamp
 
@@ -74,15 +74,6 @@ def _write_wav(path: Path, data: np.array, samplerate: int) -> None:
         samplerate,
         sampwidth=3,
     )
-
-
-def _upload_input(api_config_path: Path, input_config_path: Path) -> None:
-    api_config = _read_config(api_config_path)
-    input = _read_config(input_config_path)
-    api = ForgeApi(api_config)
-    id = api.post_input(input)
-    print(f"input uploaded with id: {id}")
-
 
 
 def _calibrate_send(
@@ -171,9 +162,7 @@ def _plot_latency(
     plt.show(block=True)
 
 
-def _test_tone(config_path: Path, unit: AudioInterface.TestToneUnit, level: float) -> None:
-    config = _read_config(config_path)
-    interface = AudioInterface(config)
+def _test_tone(interface: AudioInterface, unit: AudioInterface.TestToneUnit, level: float) -> None:
     if unit == AudioInterface.TestToneUnit.DBFS:
         if level is None:
             level = -3
@@ -292,36 +281,93 @@ def _capture(config_path: Path, no_show: bool = False) -> None:
 
 def cli():
     parser = ArgumentParser(description="Capture tool")
+    parser.add_argument("--api-config", type=str, default=".api.json", help="Path to the forge api config file")
+    parser.add_argument("--skip-api", action="store_true", help="Skip forge api calls")
+
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("interfaces", help="List audio interfaces")
     interface_parser = subparsers.add_parser("interface")
     interface_parser.add_argument("interface", nargs="?", type=int, default=-1, help="interface id")
 
-    input_upload_parser = subparsers.add_parser("input-new", help="Upload input file to forge api")
-    input_upload_parser.add_argument("api_config_path", type=str)
-    input_upload_parser.add_argument("input_config_path", type=str)
-
     testtone_parser = subparsers.add_parser("testtone", help="Generate a test tone")
-    testtone_parser.add_argument("config_path", type=str)
+    testtone_parser.add_argument("interface_config_path", type=str)
     testtone_parser.add_argument("type", nargs="?", type=str, default="dbfs", choices=["dbfs", "dbu"])
     testtone_parser.add_argument("--level", type=float, required=False)
 
-    capture_parser = subparsers.add_parser("capture", help="Run a capture")
-    capture_parser.add_argument("config_path", type=str)
-    capture_parser.add_argument("--no-show", action="store_true", help="Skip plotting latency info")
+    input_parser = subparsers.add_parser("input", help="Manage forge input files")
+    input_command_parser = input_parser.add_subparsers(dest="input_command")
+    input_list_parser = input_command_parser.add_parser("list", help="List input files in forge api")
+    input_new_parser = input_command_parser.add_parser("new", help="Upload input file to forge api")
+    input_new_parser.add_argument("input_config_path", type=str)
+
+    session_parser = subparsers.add_parser("session", help="Manage forge sessions")
+    session_command_parser = session_parser.add_subparsers(dest="session_command")
+    session_list_parser = session_command_parser.add_parser("list", help="List sessions in forge api")
+    session_get_parser = session_command_parser.add_parser("get", help="Get a session")
+    session_get_parser.add_argument("session_id", type=str)
+    session_new_parser = session_command_parser.add_parser("new", help="Create a new session")
+    session_new_parser.add_argument("session_config_path", type=str)
+    session_new_parser.add_argument("interface_config_path", type=str)
+
+    capture_parser = subparsers.add_parser("capture", help="Manage or run a capture")
+    capture_command_parser = capture_parser.add_subparsers(dest="capture_command")
+    capture_list_parser = capture_command_parser.add_parser("list", help="List captures")
+    capture_get_parser = capture_command_parser.add_parser("get", help="Get a capture")
+    capture_get_parser.add_argument("capture_id", type=str)
+    capture_run_parser = capture_command_parser.add_parser("run", help="Run a capture")
+    capture_run_parser.add_argument("interface_config_path", type=str)
+    capture_run_parser.add_argument("--no-show", action="store_true", help="Skip plotting latency info")
 
     args = parser.parse_args()
+
+
+    if args.api_config is None:
+        api = ForgeApi()
+    else:
+        api = ForgeApi(_read_config(args.api_config))
+
     if args.command == "interfaces":
         _print_interfaces()
     elif args.command == "interface":
         _print_interface(args.interface)
-    elif args.command == "input-new":
-        _upload_input(args.api_config_path, args.input_config_path)
     elif args.command == "testtone":
-        _test_tone(args.config_path, args.type, args.level)
+        interface_config = _read_config(args.interface_config_path)
+        interface = AudioInterface(interface_config)
+        _test_tone(interface, args.type, args.level)
+    elif args.command == "input":
+        if args.input_command == "list":
+            inputs = api.list_inputs()
+            print(f"inputs: {json.dumps(inputs, indent=4)}")
+        elif args.input_command == "new":
+            input_config = _read_config(args.input_config_path)
+            input = ForgeInput(input_config)
+            id = api.post_input(input)
+            print(f"input uploaded with id: {id}")
+    elif args.command == "session":
+        if args.session_command == "list":
+            sessions = api.list_sessions()
+            print(f"sessions: {json.dumps(sessions, indent=4)}")
+        elif args.session_command == "get":
+            session = api.get_session(args.session_id)
+            print(f"session: {json.dumps(session, indent=4)}")
+        elif args.session_command == "new":
+            session_config = _read_config(args.session_config_path)
+            session = ForgeSession(session_config)
+            interface_config = _read_config(args.interface_config_path)
+            interface = AudioInterface(interface_config)
+            session.config["channels"] = interface.channels["returns"]
+            id = api.post_session(session)
+            print(f"session created with id: {id}")
     elif args.command == "capture":
-        _capture(args.config_path, no_show=args.no_show)
+        if args.capture_command == "list":
+            captures = api.list_captures()
+            print(f"captures: {json.dumps(captures, indent=4)}")
+        elif args.capture_command == "get":
+            capture = api.get_capture(args.capture_id)
+            print(f"capture: {json.dumps(capture, indent=4)}")
+        elif args.capture_command == "run":
+            _capture(args.interface_config_path, no_show=args.no_show)
 
 
 if __name__ == "__main__":
