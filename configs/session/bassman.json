@@ -1,0 +1,21 @@
+{
+    "name": "Fender Tweed Bassman 2000 Reissue",
+    "gear_make": "Fender",
+    "gear_model": "Tweed Bassman 2000 Reissue",
+    "gear_type": "Guitar Amp",
+    "channels": [
+        "loopback",
+        "speaker"
+    ],
+    "parameter_labels": [
+        "Presence",
+        "Middle",
+        "Bass",
+        "Treble",
+        "Volume Bright",
+        "Volume Normal"
+    ],
+    "switch_labels": [
+        "input"
+    ]
+}

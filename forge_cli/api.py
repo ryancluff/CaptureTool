@@ -98,3 +98,13 @@ class ForgeApi:
     def get_captures(self, capture_id: str):
         url = f"{self.base_url}/captures/{capture_id}/"
         return self._get(url)
+
+    def post_capture(self, capture: ForgeCapture):
+        url = f"{self.base_url}/captures/"
+        id = self._post_json(url, capture.config)
+
+        
+
+        url = f"{self.base_url}/captures/{id}/file"
+        self._post_wav(url, path)
+        return id

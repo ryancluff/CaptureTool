@@ -1,0 +1,15 @@
+{
+    "capture_level_dbu": 9.0,
+    "reamp_file": "inputs/v3_0_0_trim.wav",
+    "device": 4,
+    "samplerate": 48000,
+    "blocksize": 512,
+    "channels": {
+        "returns": [
+            "loopback",
+            "speaker"
+        ],
+        "reamp": 3
+    },
+    "frequency": 1000
+}

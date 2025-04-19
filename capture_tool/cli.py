@@ -12,7 +12,7 @@ from capture_tool.audio import (
     calculate_latency,
     process_recordings,
 )
-from capture_tool.forge_api import ForgeInput, ForgeSession, ForgeCapture, ForgeApi
+from forge_cli.api import ForgeInput, ForgeSession, ForgeCapture, ForgeApi
 from capture_tool.interface import AudioInterface
 from capture_tool.util import timestamp
 
