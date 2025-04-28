@@ -53,6 +53,8 @@ class ForgeApi:
         response = requests.request(method, url, headers=headers, data=data)
         if response.status_code != status_code:
             raise Exception(f"Request failed: {method} {url} {response.status_code} {response.text}")
+        if not response.content:
+            return {}
         return response.json()
 
     def _get(self, url: str) -> dict:
@@ -65,7 +67,7 @@ class ForgeApi:
         return self._request("PATCH", url, data=data)
 
     def _delete(self, url: str) -> dict:
-        return self._request("DELETE", url, status_code=204)
+        return self._request("DELETE", url)
 
     def list_inputs(self) -> list:
         return self._get(f"{self.base_url}/inputs/")
