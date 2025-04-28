@@ -27,6 +27,14 @@ INIT_SELECTED_CONFIG = {
     "input_id": None,
 }
 
+INIT_INTERFACE_CONFIG = {
+    "device": 4,
+    "samplerate": 48000,
+    "blocksize": 512,
+    "send_channel": 1,
+    "frequency": 1000,
+}
+
 
 def _read_config(
     path: Path,
@@ -62,6 +70,11 @@ def _init() -> Path:
     )
     _write_config(
         forge_dir,
+        INIT_INTERFACE_CONFIG,
+        name="interface",
+    )
+    _write_config(
+        forge_dir,
         INIT_SELECTED_CONFIG,
         name="selected",
     )
@@ -69,18 +82,19 @@ def _init() -> Path:
 
 
 def _create_session_dir(
-    session_id: str,
+    session_resource: dict,
 ) -> Path:
-    session_dir = Path(FORGE_DIR, SESSIONS_DIR, session_id)
+    session_dir = Path(FORGE_DIR, SESSIONS_DIR, session_resource["id"])
     session_dir.mkdir(exist_ok=False)
+    captures_dir = Path(session_dir, CAPTURES_DIR)
+    captures_dir.mkdir(exist_ok=False)
     return session_dir
 
 
 def _create_capture_dir(
-    session_id: str,
-    capture_id: str,
+    capture_resource: dict,
 ) -> Path:
-    capture_dir = Path(FORGE_DIR, SESSIONS_DIR, session_id, CAPTURES_DIR, capture_id)
+    capture_dir = Path(FORGE_DIR, SESSIONS_DIR, capture_resource["session"], CAPTURES_DIR, capture_resource["id"])
     capture_dir.mkdir(exist_ok=False)
     return capture_dir
 
@@ -122,6 +136,10 @@ def cli():
     get_parser.add_argument("resource", type=str, choices=["input", "session", "capture"], help="Resource to get")
     get_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="ID of the resource to get")
 
+    delete_parser = subparsers.add_parser("delete", help="Delete a forge resource")
+    delete_parser.add_argument("resource", type=str, choices=["input", "session", "capture"], help="Resource to delete")
+    delete_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="ID of the resource to delete")
+
     create_parser = subparsers.add_parser("create", help="Create a new forge resource")
     create_subparsers = create_parser.add_subparsers(dest="resource")
 
@@ -131,21 +149,17 @@ def cli():
     create_input_subparser.add_argument("--description", type=str, default="", help="Description of the input resource")
 
     create_session_subparser = create_subparsers.add_parser("session", help="Create a new session resource")
-    create_session_subparser.add_argument("session_config_path", type=str, help="Path to session config file")
-    create_session_subparser.add_argument("interface_config_path", type=str, help="Path to interface config file")
+    create_session_subparser.add_argument("config_path", type=str, help="Path to session config file")
 
     create_capture_subparser = create_subparsers.add_parser("capture", help="Create a new capture resource")
     create_capture_subparser.add_argument("config_path", type=str, help="Path to capture config file")
-
-    delete_parser = subparsers.add_parser("delete", help="Delete a forge resource")
-    delete_parser.add_argument("resource", type=str, choices=["input", "session", "capture"], help="Resource to delete")
-    delete_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="ID of the resource to delete")
 
     args = parser.parse_args()
 
     if args.command == "init":
         _init()
-        print(f"forge directory created at: {FORGE_DIR}")
+        print(f"forge directory created at: {FORGE_DIR}. config files created with default values")
+        print(f"make adjustments to {FORGE_DIR}/api.json and {FORGE_DIR}/interface.json as needed")
     else:
         forge_dir = Path(FORGE_DIR)
         if not forge_dir.exists():
@@ -176,6 +190,21 @@ def cli():
                 resource = api.get_capture(resource_id)
             _select(args.resource, resource_id)
             print(f"{args.resource}: {json.dumps(resource, indent=4)}")
+        elif args.command == "delete":
+            if args.resource_id is None:
+                resource_id = _get_selected(args.resource)
+                if resource_id is None:
+                    print(f"no {args.resource} selected")
+                    return
+            else:
+                resource_id = args.resource_id
+            if args.resource == "input":
+                resource = api.delete_input(resource_id)
+            elif args.resource == "session":
+                resource = api.delete_session(resource_id)
+            elif args.resource == "capture":
+                resource = api.delete_capture(resource_id)
+            print(f"deleted {args.resource}: {json.dumps(resource, indent=4)}")
         elif args.command == "create":
             if args.resource == "input":
                 with open(args.file_path, "rb") as fp:
@@ -189,32 +218,20 @@ def cli():
                 resource = api.upload_input(resource["id"], args.file_path)
                 _select("input", resource["id"])
             elif args.resource == "session":
-                interface_config = _read_config(args.configs[1])
-                session_config = _read_config(args.configs[0])
-                session = ForgeSession(session_config)
-                id = api.create_session(session)
-                _select("session", id)
-                session_dir = _create_session_dir(id)
-                _write_config(session_dir, interface_config, "interface")
-                _write_config(session_dir, session_config, "session")
+                session_config = _read_config(args.config_path)
+                resource = api.create_session(session_config)
+                session_dir = _create_session_dir(resource)
+                _write_config(session_dir, resource, "session")
+                _select("session", resource["id"])
             elif args.resource == "capture":
-                capture_config = _read_config(args.configs[0])
-
-                id = api.create_capture(args.interface_config_path, no_show=args.no_show)
-            print(f"{args.resource}: {json.dumps(resource, indent=4)}")
-        elif args.command == "delete":
-            if args.resource_id is None:
-                resource_id = _get_selected(args.resource)
-                if resource_id is None:
-                    print(f"no {args.resource} selected")
-                    return
-            if args.resource == "input":
-                api.delete_input(resource_id)
-            elif args.resource == "session":
-                api.delete_session(resource_id)
-            elif args.resource == "capture":
-                api.delete_capture(resource_id)
-            print(f"{args.resource} {resource_id} deleted")
+                capture_config = _read_config(args.config_path)
+                capture_config["session"] = _get_selected("session")
+                capture_config["input"] = _get_selected("input")
+                resource = api.create_capture(capture_config)
+                capture_dir = _create_capture_dir(resource)
+                _write_config(capture_dir, resource, "capture")
+                _select("capture", resource["id"])
+            print(f"created {args.resource}: {json.dumps(resource, indent=4)}")
 
 
 if __name__ == "__main__":
