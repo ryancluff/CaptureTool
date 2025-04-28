@@ -5,22 +5,25 @@ import requests
 from capture_tool.util import hash
 
 
-class ForgeInput:
+class Resource:
     def __init__(self, config):
         self.config = config
         self.id = None
 
-
-class ForgeSession:
-    def __init__(self, config):
-        self.config = config
-        self.id = None
+    def __str__(self):
+        return json.dumps(self.config, indent=4)
 
 
-class ForgeCapture:
-    def __init__(self, config):
-        self.config = config
-        self.id = None
+class ForgeInput(Resource):
+    pass
+
+
+class ForgeSession(Resource):
+    pass
+
+
+class ForgeCapture(Resource):
+    pass
 
 
 class ForgeApi:
@@ -30,81 +33,91 @@ class ForgeApi:
         self.protocol = config.get("protocol", "http")
         self.base_url = f"{self.protocol}://{self.host}:{self.port}"
 
-    def _get(self, url: str) -> dict:
-        method = "GET"
-        headers = {
-            "Content-Type": "application/json",
-        }
-        response = requests.request(method, url, headers=headers)
-        if response.status_code != 200:
+    def _request(
+        self,
+        method: str,
+        url: str,
+        data: dict | bytes | None = None,
+        status_code: int = 200,
+    ) -> dict:
+        if isinstance(data, bytes):
+            headers = {
+                "Content-Type": "audio/wav",
+                "Content-Disposition": "attachment; filename=upload.wav",
+            }
+        else:
+            headers = {
+                "Content-Type": "application/json",
+            }
+            data = json.dumps(data) if data else None
+        response = requests.request(method, url, headers=headers, data=data)
+        if response.status_code != status_code:
             raise Exception(f"Request failed: {method} {url} {response.status_code} {response.text}")
         return response.json()
 
-    def _post_json(self, url: str, payload: dict) -> str:
-        method = "POST"
-        headers = {
-            "Content-Type": "application/json",
-        }
-        payload = json.dumps(payload)
-        response = requests.request(method, url, headers=headers, data=payload)
-        if response.status_code != 201:
-            raise Exception(f"Request failed: {method} {url} {response.status_code} {response.text}")
-        return response.json().get("id")
+    def _get(self, url: str) -> dict:
+        return self._request("GET", url)
 
-    def _post_wav(self, url: str, path: Path) -> None:
-        method = "POST"
-        headers = {
-            "Content-Disposition": "attachment; filename=upload.wav",
-            "Content-Type": "audio/wav",
-        }
-        with open(path, "rb") as fp:
-            response = requests.request(method, url, headers=headers, data=fp.read())
-        if response.status_code != 201:
-            raise Exception(f"File upload failed: {method} {url} {response.status_code} {response.text}")
+    def _post(self, url: str, data: dict) -> dict:
+        return self._request("POST", url, data=data, status_code=201)
 
-    def list_inputs(self):
-        url = f"{self.base_url}/inputs/"
-        return self._get(url)
+    def _patch(self, url: str, data: dict | bytes) -> dict:
+        return self._request("PATCH", url, data=data)
 
-    def post_input(self, input: ForgeInput):
-        path = input.config.get("path")
-        if not path:
-            raise ValueError("Input must have a path")
-        input["file_hash"] = hash(path)
+    def _delete(self, url: str) -> dict:
+        return self._request("DELETE", url, status_code=204)
 
-        url = f"{self.base_url}/inputs/"
-        id = self._post_json(url, input)
+    def list_inputs(self) -> list:
+        return self._get(f"{self.base_url}/inputs/")
 
-        url = f"{self.base_url}/inputs/{id}/file"
-        self._post_wav(url, path)
-        return id
+    def list_sessions(self) -> list:
+        return self._get(f"{self.base_url}/sessions/")
 
-    def list_sessions(self):
-        url = f"{self.base_url}/sessions/"
-        return self._get(url)
+    def list_captures(self) -> list:
+        return self._get(f"{self.base_url}/captures/")
 
-    def get_session(self, session_id: str):
-        url = f"{self.base_url}/sessions/{session_id}/"
-        return self._get(url)
+    def get_input(self, input_id: str) -> dict:
+        return self._get(f"{self.base_url}/inputs/{input_id}/")
 
-    def post_session(self, session: ForgeSession):
-        url = f"{self.base_url}/sessions/"
-        return self._post_json(url, session.config)
+    def get_session(self, session_id: str) -> dict:
+        return self._get(f"{self.base_url}/sessions/{session_id}/")
 
-    def list_captures(self):
-        url = f"{self.base_url}/captures/"
-        return self._get(url)
+    def get_capture(self, capture_id: str) -> dict:
+        return self._get(f"{self.base_url}/captures/{capture_id}/")
 
-    def get_captures(self, capture_id: str):
-        url = f"{self.base_url}/captures/{capture_id}/"
-        return self._get(url)
+    def create_input(self, config: dict) -> dict:
+        return self._post(f"{self.base_url}/inputs/", config)
 
-    def post_capture(self, capture: ForgeCapture):
-        url = f"{self.base_url}/captures/"
-        id = self._post_json(url, capture.config)
+    def create_session(self, config: dict) -> dict:
+        return self._post(f"{self.base_url}/sessions/", config)
 
-        
+    def create_capture(self, config: dict) -> dict:
+        return self._post(f"{self.base_url}/captures/", config)
 
-        url = f"{self.base_url}/captures/{id}/file"
-        self._post_wav(url, path)
-        return id
+    def update_input(self, input_id: str, config: dict) -> dict:
+        return self._patch(f"{self.base_url}/inputs/{input_id}/", config)
+
+    def update_session(self, session_id: str, config: dict) -> dict:
+        return self._patch(f"{self.base_url}/sessions/{session_id}/", config)
+
+    def update_capture(self, capture_id: str, config: dict) -> dict:
+        return self._patch(f"{self.base_url}/captures/{capture_id}/", config)
+
+    def upload_input(self, input_id: str, file_path: str):
+        with open(file_path, "rb") as fp:
+            data = fp.read()
+        return self._patch(f"{self.base_url}/inputs/{input_id}/", data=data)
+
+    def upload_capture(self, capture_id: str, file_path: str):
+        with open(file_path, "rb") as fp:
+            data = fp.read()
+        return self._patch(f"{self.base_url}/captures/{capture_id}/", data=data)
+
+    def delete_input(self, input_id: str):
+        return self._delete(f"{self.base_url}/inputs/{input_id}/")
+
+    def delete_session(self, session_id: str):
+        return self._delete(f"{self.base_url}/sessions/{session_id}/")
+
+    def delete_capture(self, capture_id: str):
+        return self._delete(f"{self.base_url}/captures/{capture_id}/")
