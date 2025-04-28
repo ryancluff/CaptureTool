@@ -3,10 +3,6 @@
     "gear_make": "Fender",
     "gear_model": "Tweed Bassman 2000 Reissue",
     "gear_type": "Guitar Amp",
-    "channels": [
-        "loopback",
-        "speaker"
-    ],
     "parameter_labels": [
         "Presence",
         "Middle",
@@ -17,5 +13,9 @@
     ],
     "switch_labels": [
         "input"
+    ],
+    "channels": [
+        "loopback",
+        "speaker"
     ]
 }
