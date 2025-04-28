@@ -1,0 +1,14 @@
+{
+    "parameters": [
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5
+    ],
+    "switches": [
+        1
+    ],
+    "capture_level_dbu": 9.0
+}
