@@ -5,8 +5,7 @@ import numpy as np
 from pathlib import Path
 import wavio
 
-from forge_cli.api import ForgeInput, ForgeSession, ForgeCapture, ForgeApi
-from capture_tool.interface import AudioInterface
+from forge_cli.api import ForgeApi
 from capture_tool.util import timestamp
 
 
