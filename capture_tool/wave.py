@@ -82,17 +82,12 @@ class SweepWave(Wave):
     ):
         super().__init__(samplerate, dbfs, loop)
         self.len = int(samplerate * duration)
-        chirprate = (end_freq - start_freq) / self.len
-        self.lookup_table = np.array(
-            [
-                int(
-                    self.MAX_VAL_INT24
-                    * self.db_to_scalar(dbfs)
-                    * math.sin(2.0 * math.pi * (chirprate * (i * i) + start_freq * i))
-                )
-                for i in range(self.len)
-            ]
-        )
+        self.t = np.linspace(0, duration, self.len, endpoint=False)
+
+        beta = (end_freq - start_freq) / duration
+        phase = 2 * np.pi * (start_freq * self.t + 0.5 * beta * self.t * self.t)
+        w = self.MAX_VAL_INT24 * self.db_to_scalar(dbfs) * np.sin(phase)
+        self.lookup_table = w.astype(np.int32)
 
 
 class AudioWave(Wave):
