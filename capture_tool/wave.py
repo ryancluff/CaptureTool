@@ -70,6 +70,31 @@ class SineWave(Wave):
         )
 
 
+class SweepWave(Wave):
+    def __init__(
+        self,
+        start_freq: float = 20.0,
+        end_freq: float = 20000.0,
+        duration: float = 10.0,
+        samplerate: int = 48000,
+        dbfs: float = 0.0,
+        loop: bool = False,
+    ):
+        super().__init__(samplerate, dbfs, loop)
+        self.len = int(samplerate * duration)
+        chirprate = (end_freq - start_freq) / self.len
+        self.lookup_table = np.array(
+            [
+                int(
+                    self.MAX_VAL_INT24
+                    * self.db_to_scalar(dbfs)
+                    * math.sin(2.0 * math.pi * (chirprate * (i * i) + start_freq * i))
+                )
+                for i in range(self.len)
+            ]
+        )
+
+
 class AudioWave(Wave):
     def __init__(
         self,
