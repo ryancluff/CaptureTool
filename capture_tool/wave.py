@@ -39,6 +39,9 @@ class Wave:
         self.frame += 1
         return value
 
+    def reset(self):
+        self.frame = 0
+
     def of_length(self, seconds: float = 2, samples: int = None) -> np.array:
         if samples is not None:
             return np.array([next(self) for _ in range(samples)])
