@@ -5,7 +5,7 @@
             "name": "interfaces",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/capture_tool.py",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
@@ -16,7 +16,7 @@
             "name": "interface default",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/capture_tool.py",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
@@ -27,7 +27,7 @@
             "name": "interface 4",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/capture_tool.py",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
@@ -36,86 +36,10 @@
             ]
         },
         {
-            "name": "input list",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/main.py",
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "args": [
-                "input",
-                "list"
-            ]
-        },
-        {
-            "name": "input new",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/main.py",
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "args": [
-                "input",
-                "new",
-                "configs/input/v3_0_0.json"
-            ]
-        },
-        {
-            "name": "session list",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/main.py",
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "args": [
-                "session",
-                "list"
-            ]
-        },
-        {
-            "name": "session get",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/main.py",
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "args": [
-                "session",
-                "get",
-                "f006c8f9-550b-4764-bea4-cb7565f9c902"
-            ]
-        },
-        {
-            "name": "session new",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/main.py",
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "args": [
-                "session",
-                "new",
-                "configs/session/bassman.json",
-                "configs/interface/default.json",
-            ]
-        },
-        {
-            "name": "capture list",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/main.py",
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "args": [
-                "capture",
-                "list"
-            ]
-        },
-        {
             "name": "testtone dbfs",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/capture_tool.py",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
@@ -128,12 +52,48 @@
             "name": "capture",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/capture_tool.py",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
                 "capture",
                 "configs/default.json",
+            ]
+        },
+        {
+            "name": "list inputs",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/forge_cli.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "list",
+                "inputs"
+            ]
+        },
+        {
+            "name": "list sessions",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/forge_cli.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "list",
+                "sessions"
+            ]
+        },
+        {
+            "name": "list captures",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/forge_cli.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "list",
+                "captures"
             ]
         }
     ]
