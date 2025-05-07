@@ -230,7 +230,7 @@ def cli():
                 capture_dir = _create_capture_dir(resource)
                 _write_config(capture_dir, resource, "capture")
                 _select("capture", resource["id"])
-            print(f"created {args.resource}: {json.dumps(resource, indent=4)}")
+            print(f"created {args.resource}: {json.dumps(resource, indent=4)}") 
 
 
 if __name__ == "__main__":
