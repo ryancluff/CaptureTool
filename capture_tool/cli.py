@@ -292,8 +292,8 @@ def cli():
     testtone_parser.add_argument("type", nargs="?", type=str, default="dbfs", choices=["dbfs", "dbu"])
     testtone_parser.add_argument("--level", type=float, required=False)
 
-    capture_parser = subparsers.add_parser("run", help="Manage or run a capture")
-    capture_parser.add_argument("interface_config_path", type=str)
+    capture_parser = subparsers.add_parser("run", help="Run a capture")
+    capture_parser.add_argument("capture_path", type=str)
     capture_parser.add_argument("--no-show", action="store_true", help="Skip plotting latency info")
 
     args = parser.parse_args()
@@ -307,7 +307,11 @@ def cli():
         interface = AudioInterface(interface_config)
         _test_tone(interface, args.type, args.level)
     elif args.command == "run":
-        interface_config = _read_config(args.interface_config_path)
+        forge_dir, session_dir, capture_dir = Path(args.capture_path).parts
+        interface_config = _read_config(Path(forge_dir, "interface.json"))
+        selected_config = _read_config(Path(forge_dir, "selected.json"))
+        session_config = _read_config(Path(forge_dir, session_dir, "session.json"))
+        capture_config = _read_config(Path(forge_dir, session_dir, capture_dir, "capture.json"))
         interface = AudioInterface(interface_config)
         _capture(args.capture_config_path, no_show=args.no_show)
 
