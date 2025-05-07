@@ -1,8 +1,0 @@
-{
-    "host": "localhost",
-    "port": 8000,
-    "protocol": "http",
-    "session_id": "",
-    "input_id":"",
-    "capture_id": ""
-}
