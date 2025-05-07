@@ -21,9 +21,9 @@ INIT_API_CONFIG = {
 }
 
 INIT_SELECTED_CONFIG = {
-    "session_id": None,
-    "capture_id": None,
-    "input_id": None,
+    "session": None,
+    "capture": None,
+    "input": None,
 }
 
 INIT_INTERFACE_CONFIG = {
