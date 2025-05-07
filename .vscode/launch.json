@@ -95,6 +95,17 @@
                 "list",
                 "captures"
             ]
+        },
+        {
+            "name": "init",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/forge_cli.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "init"
+            ]
         }
     ]
 }
