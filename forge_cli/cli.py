@@ -8,6 +8,8 @@ import wavio
 from forge_cli.api import ForgeApi
 from capture_tool.util import timestamp
 
+RESOURCES = ["input", "session", "capture", "snapshot"]
+RESOURCES_PLURAL = ["inputs", "sessions", "captures", "snapshots"]
 
 FORGE_DIR = ".forge"
 SESSIONS_DIR = "sessions"
@@ -129,14 +131,14 @@ def cli():
     subparsers.add_parser("init", help="Set up persistent forge directories and api config")
 
     list_parser = subparsers.add_parser("list", help="List forge resources")
-    list_parser.add_argument("resource", type=str, choices=["inputs", "sessions", "captures"], help="Resource to list")
+    list_parser.add_argument("resource", type=str, choices=RESOURCES_PLURAL, help="Resource to list")
 
     get_parser = subparsers.add_parser("get", help="Get a forge resource")
-    get_parser.add_argument("resource", type=str, choices=["input", "session", "capture"], help="Resource to get")
+    get_parser.add_argument("resource", type=str, choices=RESOURCES, help="Resource to get")
     get_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="ID of the resource to get")
 
     delete_parser = subparsers.add_parser("delete", help="Delete a forge resource")
-    delete_parser.add_argument("resource", type=str, choices=["input", "session", "capture"], help="Resource to delete")
+    delete_parser.add_argument("resource", type=str, choices=RESOURCES, help="Resource to delete")
     delete_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="ID of the resource to delete")
 
     create_parser = subparsers.add_parser("create", help="Create a new forge resource")
@@ -172,6 +174,8 @@ def cli():
                 resources = api.list_sessions()
             elif args.resource == "captures":
                 resources = api.list_captures()
+            elif args.resource == "snapshots":
+                raise NotImplementedError("list snapshots not implemented")
             print(f"{args.resource}: {json.dumps(resources, indent=4)}")
         elif args.command == "get":
             if args.resource_id is None:
@@ -187,6 +191,8 @@ def cli():
                 resource = api.get_session(resource_id)
             elif args.resource == "capture":
                 resource = api.get_capture(resource_id)
+            elif args.resource == "snapshot":
+                raise NotImplementedError("get snapshot not implemented")
             _select(args.resource, resource_id)
             print(f"{args.resource}: {json.dumps(resource, indent=4)}")
         elif args.command == "delete":
@@ -203,6 +209,8 @@ def cli():
                 resource = api.delete_session(resource_id)
             elif args.resource == "capture":
                 resource = api.delete_capture(resource_id)
+            elif args.resource == "snapshot":
+                raise NotImplementedError("delete snapshot not implemented")
             print(f"deleted {args.resource}: {json.dumps(resource, indent=4)}")
         elif args.command == "create":
             if args.resource == "input":
@@ -230,6 +238,8 @@ def cli():
                 capture_dir = _create_capture_dir(resource)
                 _write_config(capture_dir, resource, "capture")
                 _select("capture", resource["id"])
+            elif args.resource == "snapshot":
+                raise NotImplementedError("create snapshot not implemented")
             print(f"created {args.resource}: {json.dumps(resource, indent=4)}") 
 
 
