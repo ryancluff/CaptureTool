@@ -1,29 +1,5 @@
 import json
-from pathlib import Path
 import requests
-
-from capture_tool.util import hash
-
-
-class Resource:
-    def __init__(self, config):
-        self.config = config
-        self.id = None
-
-    def __str__(self):
-        return json.dumps(self.config, indent=4)
-
-
-class ForgeInput(Resource):
-    pass
-
-
-class ForgeSession(Resource):
-    pass
-
-
-class ForgeCapture(Resource):
-    pass
 
 
 class ForgeApi:
