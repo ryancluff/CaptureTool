@@ -201,7 +201,7 @@ def cli():
                 _select("capture", resource["id"])
             elif args.resource == "snapshot":
                 raise NotImplementedError("create snapshot not implemented")
-            print(f"created {args.resource}: {json.dumps(resource, indent=4)}") 
+            print(f"created {args.resource}: {json.dumps(resource, indent=4)}")
 
 
 if __name__ == "__main__":
