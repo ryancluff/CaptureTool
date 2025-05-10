@@ -6,7 +6,6 @@ from pathlib import Path
 import wavio
 
 from forge_cli.api import ForgeApi
-from capture_tool.util import timestamp
 
 RESOURCES = ["input", "session", "capture", "snapshot"]
 RESOURCES_PLURAL = ["inputs", "sessions", "captures", "snapshots"]
