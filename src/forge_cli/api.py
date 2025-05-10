@@ -3,8 +3,16 @@ import requests
 
 
 class ForgeApi:
-    RESOURCES = ["input", "session", "capture", "snapshot"]
-    RESOURCES_PLURAL = ["inputs", "sessions", "captures", "snapshots"]
+    class Resource:
+        TYPES = ["input", "session", "capture", "snapshot"]
+        TYPES_PLURAL = [RESOURCE + "s" for RESOURCE in TYPES]
+
+        def __init__(self, resource_type: str):
+            if resource_type not in self.TYPES or resource_type not in self.TYPES_PLURAL:
+                raise ValueError(
+                    f"Invalid resource: {resource_type}. Must be one of {[type + '(s)' for type in self.TYPES]}"
+                )
+            self.type = resource_type + "s" if resource_type in self.TYPES else resource_type
 
     def __init__(self, config: dict = {}):
         self.host = config.get("host", "localhost")
@@ -36,69 +44,28 @@ class ForgeApi:
             return {}
         return response.json()
 
-    def _get(self, url: str) -> dict:
-        return self._request("GET", url)
+    def list(self, resource_type: str) -> list:
+        resource = self.Resource(resource_type)
+        return self._request("GET", f"{self.base_url}/{resource.type}/")
 
-    def _post(self, url: str, data: dict) -> dict:
-        return self._request("POST", url, data=data, status_code=201)
+    def get(self, resource_type: str, resource_id: str) -> dict:
+        resource = self.Resource(resource_type)
+        return self._request("GET", f"{self.base_url}/{resource.type}/{resource_id}/")
 
-    def _patch(self, url: str, data: dict | bytes) -> dict:
-        return self._request("PATCH", url, data=data)
+    def create(self, resource_type: str, config: dict) -> dict:
+        resource = self.Resource(resource_type)
+        return self._request("POST", f"{self.base_url}/{resource.type}/", data=config, status_code=201)
 
-    def _delete(self, url: str) -> dict:
-        return self._request("DELETE", url)
+    def update(self, resource_type: str, resource_id: str, config: dict) -> dict:
+        resource = self.Resource(resource_type)
+        return self._request("PATCH", f"{self.base_url}/{resource.type}/{resource_id}/", data=config)
 
-    def list_inputs(self) -> list:
-        return self._get(f"{self.base_url}/inputs/")
-
-    def list_sessions(self) -> list:
-        return self._get(f"{self.base_url}/sessions/")
-
-    def list_captures(self) -> list:
-        return self._get(f"{self.base_url}/captures/")
-
-    def get_input(self, input_id: str) -> dict:
-        return self._get(f"{self.base_url}/inputs/{input_id}/")
-
-    def get_session(self, session_id: str) -> dict:
-        return self._get(f"{self.base_url}/sessions/{session_id}/")
-
-    def get_capture(self, capture_id: str) -> dict:
-        return self._get(f"{self.base_url}/captures/{capture_id}/")
-
-    def create_input(self, config: dict) -> dict:
-        return self._post(f"{self.base_url}/inputs/", config)
-
-    def create_session(self, config: dict) -> dict:
-        return self._post(f"{self.base_url}/sessions/", config)
-
-    def create_capture(self, config: dict) -> dict:
-        return self._post(f"{self.base_url}/captures/", config)
-
-    def update_input(self, input_id: str, config: dict) -> dict:
-        return self._patch(f"{self.base_url}/inputs/{input_id}/", config)
-
-    def update_session(self, session_id: str, config: dict) -> dict:
-        return self._patch(f"{self.base_url}/sessions/{session_id}/", config)
-
-    def update_capture(self, capture_id: str, config: dict) -> dict:
-        return self._patch(f"{self.base_url}/captures/{capture_id}/", config)
-
-    def upload_input(self, input_id: str, file_path: str):
+    def upload(self, resource_type: str, resource_id: str, file_path: str) -> dict:
+        resource = self.Resource(resource_type)
         with open(file_path, "rb") as fp:
             data = fp.read()
-        return self._patch(f"{self.base_url}/inputs/{input_id}/", data=data)
+        return self._request("PATCH", f"{self.base_url}/{resource.type}/{resource_id}/", data=data)
 
-    def upload_capture(self, capture_id: str, file_path: str):
-        with open(file_path, "rb") as fp:
-            data = fp.read()
-        return self._patch(f"{self.base_url}/captures/{capture_id}/", data=data)
-
-    def delete_input(self, input_id: str):
-        return self._delete(f"{self.base_url}/inputs/{input_id}/")
-
-    def delete_session(self, session_id: str):
-        return self._delete(f"{self.base_url}/sessions/{session_id}/")
-
-    def delete_capture(self, capture_id: str):
-        return self._delete(f"{self.base_url}/captures/{capture_id}/")
+    def delete(self, resource_type: str, resource_id: str) -> dict:
+        resource = self.Resource(resource_type)
+        return self._request("DELETE", f"{self.base_url}/{resource.type}/{resource_id}/")

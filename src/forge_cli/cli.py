@@ -127,14 +127,14 @@ def cli():
     subparsers.add_parser("init", help="Set up persistent forge directories and api config")
 
     list_parser = subparsers.add_parser("list", help="List forge resources")
-    list_parser.add_argument("resource", type=str, choices=ForgeApi.RESOURCES_PLURAL, help="Resource to list")
+    list_parser.add_argument("resource", type=str, choices=ForgeApi.Resource.TYPES_PLURAL, help="Resource to list")
 
     get_parser = subparsers.add_parser("get", help="Get a forge resource")
-    get_parser.add_argument("resource", type=str, choices=ForgeApi.RESOURCES, help="Resource to get")
+    get_parser.add_argument("resource", type=str, choices=ForgeApi.Resource.TYPES, help="Resource to get")
     get_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="ID of the resource to get")
 
     delete_parser = subparsers.add_parser("delete", help="Delete a forge resource")
-    delete_parser.add_argument("resource", type=str, choices=ForgeApi.RESOURCES, help="Resource to delete")
+    delete_parser.add_argument("resource", type=str, choices=ForgeApi.Resource.TYPES, help="Resource to delete")
     delete_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="ID of the resource to delete")
 
     create_parser = subparsers.add_parser("create", help="Create a new forge resource")
@@ -164,49 +164,14 @@ def cli():
             return
         api = ForgeApi(_read_config(Path(forge_dir, "api.json")))
         if args.command == "list":
-            if args.resource == "inputs":
-                resources = api.list_inputs()
-            elif args.resource == "sessions":
-                resources = api.list_sessions()
-            elif args.resource == "captures":
-                resources = api.list_captures()
-            elif args.resource == "snapshots":
-                raise NotImplementedError("list snapshots not implemented")
+            resources = api.list(args.resource)
             print(f"{args.resource}: {json.dumps(resources, indent=4)}")
         elif args.command == "get":
-            if args.resource_id is None:
-                resource_id = _get_selected(args.resource)
-                if resource_id is None:
-                    print(f"no {args.resource} selected")
-                    return
-            else:
-                resource_id = args.resource_id
-            if args.resource == "input":
-                resource = api.get_input(resource_id)
-            elif args.resource == "session":
-                resource = api.get_session(resource_id)
-            elif args.resource == "capture":
-                resource = api.get_capture(resource_id)
-            elif args.resource == "snapshot":
-                raise NotImplementedError("get snapshot not implemented")
-            _select(args.resource, resource_id)
+            resource = api.get(args.resource, args.resource_id)
+            _select(args.resource, args.resource_id)
             print(f"{args.resource}: {json.dumps(resource, indent=4)}")
         elif args.command == "delete":
-            if args.resource_id is None:
-                resource_id = _get_selected(args.resource)
-                if resource_id is None:
-                    print(f"no {args.resource} selected")
-                    return
-            else:
-                resource_id = args.resource_id
-            if args.resource == "input":
-                resource = api.delete_input(resource_id)
-            elif args.resource == "session":
-                resource = api.delete_session(resource_id)
-            elif args.resource == "capture":
-                resource = api.delete_capture(resource_id)
-            elif args.resource == "snapshot":
-                raise NotImplementedError("delete snapshot not implemented")
+            resource = api.delete(args.resource, args.resource_id)
             print(f"deleted {args.resource}: {json.dumps(resource, indent=4)}")
         elif args.command == "create":
             if args.resource == "input":
@@ -217,12 +182,12 @@ def cli():
                     "description": args.description,
                     "hash": file_hash,
                 }
-                resource = api.create_input(config)
-                resource = api.upload_input(resource["id"], args.file_path)
+                resource = api.create(args.resource, config)
+                resource = api.upload(args.resource, resource["id"], args.file_path)
                 _select("input", resource["id"])
             elif args.resource == "session":
                 session_config = _read_config(args.config_path)
-                resource = api.create_session(session_config)
+                resource = api.create(args.resource, session_config)
                 session_dir = _create_session_dir(resource)
                 _write_config(session_dir, resource, "session")
                 _select("session", resource["id"])
@@ -230,7 +195,7 @@ def cli():
                 capture_config = _read_config(args.config_path)
                 capture_config["session"] = _get_selected("session")
                 capture_config["input"] = _get_selected("input")
-                resource = api.create_capture(capture_config)
+                resource = api.create(args.resource, capture_config)
                 capture_dir = _create_capture_dir(resource)
                 _write_config(capture_dir, resource, "capture")
                 _select("capture", resource["id"])
