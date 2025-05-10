@@ -3,6 +3,9 @@ import requests
 
 
 class ForgeApi:
+    RESOURCES = ["input", "session", "capture", "snapshot"]
+    RESOURCES_PLURAL = ["inputs", "sessions", "captures", "snapshots"]
+
     def __init__(self, config: dict = {}):
         self.host = config.get("host", "localhost")
         self.port = config.get("port", 8000)

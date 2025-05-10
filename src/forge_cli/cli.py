@@ -7,9 +7,6 @@ import wavio
 
 from forge_cli.api import ForgeApi
 
-RESOURCES = ["input", "session", "capture", "snapshot"]
-RESOURCES_PLURAL = ["inputs", "sessions", "captures", "snapshots"]
-
 FORGE_DIR = ".forge"
 SESSIONS_DIR = "sessions"
 CAPTURES_DIR = "captures"
@@ -130,14 +127,14 @@ def cli():
     subparsers.add_parser("init", help="Set up persistent forge directories and api config")
 
     list_parser = subparsers.add_parser("list", help="List forge resources")
-    list_parser.add_argument("resource", type=str, choices=RESOURCES_PLURAL, help="Resource to list")
+    list_parser.add_argument("resource", type=str, choices=ForgeApi.RESOURCES_PLURAL, help="Resource to list")
 
     get_parser = subparsers.add_parser("get", help="Get a forge resource")
-    get_parser.add_argument("resource", type=str, choices=RESOURCES, help="Resource to get")
+    get_parser.add_argument("resource", type=str, choices=ForgeApi.RESOURCES, help="Resource to get")
     get_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="ID of the resource to get")
 
     delete_parser = subparsers.add_parser("delete", help="Delete a forge resource")
-    delete_parser.add_argument("resource", type=str, choices=RESOURCES, help="Resource to delete")
+    delete_parser.add_argument("resource", type=str, choices=ForgeApi.RESOURCES, help="Resource to delete")
     delete_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="ID of the resource to delete")
 
     create_parser = subparsers.add_parser("create", help="Create a new forge resource")
