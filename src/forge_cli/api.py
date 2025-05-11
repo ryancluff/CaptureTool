@@ -8,7 +8,7 @@ class ForgeApi:
         TYPES_PLURAL = [RESOURCE + "s" for RESOURCE in TYPES]
 
         def __init__(self, resource_type: str):
-            if resource_type not in self.TYPES or resource_type not in self.TYPES_PLURAL:
+            if resource_type not in self.TYPES and resource_type not in self.TYPES_PLURAL:
                 raise ValueError(
                     f"Invalid resource: {resource_type}. Must be one of {[type + '(s)' for type in self.TYPES]}"
                 )
@@ -17,11 +17,8 @@ class ForgeApi:
     class File:
         TYPES = ["input", "capture"]
 
-    def __init__(self, config: dict = {}):
-        self.host = config.get("host", "localhost")
-        self.port = config.get("port", 8000)
-        self.protocol = config.get("protocol", "http")
-        self.base_url = f"{self.protocol}://{self.host}:{self.port}"
+    def __init__(self, api_str: str):
+        self.api_str = api_str
 
     def _request(
         self,
@@ -49,33 +46,33 @@ class ForgeApi:
 
     def list(self, resource_type: str) -> list:
         resource = self.Resource(resource_type)
-        return self._request("GET", f"{self.base_url}/{resource.type}/")
+        return self._request("GET", f"{self.api_str}/{resource.type}/")
 
     def create(self, resource_type: str, config: dict) -> dict:
         resource = self.Resource(resource_type)
-        return self._request("POST", f"{self.base_url}/{resource.type}/", data=config, status_code=201)
+        return self._request("POST", f"{self.api_str}/{resource.type}/", data=config, status_code=201)
 
     def get(self, resource_type: str, resource_id: str) -> dict:
         resource = self.Resource(resource_type)
-        return self._request("GET", f"{self.base_url}/{resource.type}/{resource_id}/")
+        return self._request("GET", f"{self.api_str}/{resource.type}/{resource_id}/")
 
     def update(self, resource_type: str, resource_id: str, config: dict) -> dict:
         resource = self.Resource(resource_type)
-        return self._request("PATCH", f"{self.base_url}/{resource.type}/{resource_id}/", data=config)
+        return self._request("PATCH", f"{self.api_str}/{resource.type}/{resource_id}/", data=config)
 
     def delete(self, resource_type: str, resource_id: str) -> dict:
         resource = self.Resource(resource_type)
-        return self._request("DELETE", f"{self.base_url}/{resource.type}/{resource_id}/")
+        return self._request("DELETE", f"{self.api_str}/{resource.type}/{resource_id}/")
 
     def upload(self, resource_type: str, resource_id: str, file_path: str) -> dict:
         resource = self.Resource(resource_type)
         with open(file_path, "rb") as fp:
             data = fp.read()
-        return self._request("PATCH", f"{self.base_url}/{resource.type}/{resource_id}/", data=data)
+        return self._request("PATCH", f"{self.api_str}/{resource.type}/{resource_id}/", data=data)
 
     def download(self, resource_type: str, resource_id: str) -> bytes:
         resource = self.Resource(resource_type)
-        response = requests.get(f"{self.base_url}/{resource.type}/{resource_id}/")
+        response = requests.get(f"{self.api_str}/{resource.type}/{resource_id}/")
         if response.status_code != 200:
             raise Exception(f"Request failed: {response.status_code} {response.text}")
         return response.content
