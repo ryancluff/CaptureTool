@@ -2,69 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "interfaces",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/capture_tool.py",
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "args": [
-                "interfaces"
-            ]
-        },
-        {
-            "name": "interface default",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/capture_tool.py",
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "args": [
-                "interface"
-            ]
-        },
-        {
-            "name": "interface 4",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/capture_tool.py",
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "args": [
-                "interface",
-                "4"
-            ]
-        },
-        {
-            "name": "testtone dbfs",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/capture_tool.py",
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "args": [
-                "testtone",
-                "configs/default.json",
-                "dbfs"
-            ]
-        },
-        {
-            "name": "capture",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/capture_tool.py",
-            "console": "integratedTerminal",
-            "justMyCode": false,
-            "args": [
-                "capture",
-                "configs/default.json",
-            ]
-        },
-        {
             "name": "list inputs",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/forge_cli.py",
+            "program": "${workspaceFolder}/src/forge_cli",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
@@ -76,7 +17,7 @@
             "name": "list sessions",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/forge_cli.py",
+            "program": "${workspaceFolder}/src/forge_cli",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
@@ -88,24 +29,235 @@
             "name": "list captures",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/forge_cli.py",
+            "program": "${workspaceFolder}/src/forge_cli",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
                 "list",
-                "captures"
+                "capture"
             ]
         },
         {
-            "name": "init",
+            "name": "list snapshots",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/forge_cli.py",
+            "program": "${workspaceFolder}/src/forge_cli",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "init"
+                "list",
+                "snapshots"
             ]
-        }
+        },
+        {
+            "name": "create input",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "create",
+                "input",
+                "config/input.json"
+            ]
+        },
+        {
+            "name": "create session",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "create",
+                "session",
+                "config/session.json"
+            ]
+        },
+        {
+            "name": "create capture",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "create",
+                "capture",
+                "config/capture.json"
+            ]
+        },
+        {
+            "name": "create snapshot",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "create",
+                "snapshot",
+                "config/session.json"
+            ]
+        },
+        {
+            "name": "get input",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "get",
+                "input",
+                "v3_0_0.wav"
+            ]
+        },
+        {
+            "name": "get session",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "get",
+                "session",
+                "TODO"
+            ]
+        },
+        {
+            "name": "get capture",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "get",
+                "capture",
+                "TODO"
+            ]
+        },
+        {
+            "name": "get snapshot",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "get",
+                "snapshot",
+                "TODO"
+            ]
+        },
+        {
+            "name": "delete input",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "delete",
+                "input",
+                "TODO"
+            ]
+        },
+        {
+            "name": "delete session",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "delete",
+                "session",
+                "TODO"
+            ]
+        },
+        {
+            "name": "delete capture",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "delete",
+                "capture",
+                "TODO"
+            ]
+        },
+        {
+            "name": "delete snapshot",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "delete",
+                "snapshot",
+                "TODO"
+            ]
+        },
+        {
+            "name": "upload input",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "upload",
+                "input",
+                "inputs/v3_0_0.wav",
+                "TODO"
+            ]
+        },
+        {
+            "name": "upload capture",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "upload",
+                "capture",
+                ".forge/capture/output.wav",
+                "TODO"
+            ]
+        },
+        {
+            "name": "download input",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "download",
+                "input",
+                "TODO"
+            ]
+        },
+        {
+            "name": "download capture",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "download",
+                "capture",
+                "TODO"
+            ]
+        },
     ]
 }
