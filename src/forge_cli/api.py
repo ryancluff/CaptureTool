@@ -14,6 +14,9 @@ class ForgeApi:
                 )
             self.type = resource_type + "s" if resource_type in self.TYPES else resource_type
 
+    class File:
+        TYPES = ["input", "capture"]
+
     def __init__(self, config: dict = {}):
         self.host = config.get("host", "localhost")
         self.port = config.get("port", 8000)
@@ -48,17 +51,21 @@ class ForgeApi:
         resource = self.Resource(resource_type)
         return self._request("GET", f"{self.base_url}/{resource.type}/")
 
-    def get(self, resource_type: str, resource_id: str) -> dict:
-        resource = self.Resource(resource_type)
-        return self._request("GET", f"{self.base_url}/{resource.type}/{resource_id}/")
-
     def create(self, resource_type: str, config: dict) -> dict:
         resource = self.Resource(resource_type)
         return self._request("POST", f"{self.base_url}/{resource.type}/", data=config, status_code=201)
 
+    def get(self, resource_type: str, resource_id: str) -> dict:
+        resource = self.Resource(resource_type)
+        return self._request("GET", f"{self.base_url}/{resource.type}/{resource_id}/")
+
     def update(self, resource_type: str, resource_id: str, config: dict) -> dict:
         resource = self.Resource(resource_type)
         return self._request("PATCH", f"{self.base_url}/{resource.type}/{resource_id}/", data=config)
+
+    def delete(self, resource_type: str, resource_id: str) -> dict:
+        resource = self.Resource(resource_type)
+        return self._request("DELETE", f"{self.base_url}/{resource.type}/{resource_id}/")
 
     def upload(self, resource_type: str, resource_id: str, file_path: str) -> dict:
         resource = self.Resource(resource_type)
@@ -66,6 +73,9 @@ class ForgeApi:
             data = fp.read()
         return self._request("PATCH", f"{self.base_url}/{resource.type}/{resource_id}/", data=data)
 
-    def delete(self, resource_type: str, resource_id: str) -> dict:
+    def download(self, resource_type: str, resource_id: str) -> bytes:
         resource = self.Resource(resource_type)
-        return self._request("DELETE", f"{self.base_url}/{resource.type}/{resource_id}/")
+        response = requests.get(f"{self.base_url}/{resource.type}/{resource_id}/")
+        if response.status_code != 200:
+            raise Exception(f"Request failed: {response.status_code} {response.text}")
+        return response.content
