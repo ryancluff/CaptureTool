@@ -141,7 +141,3 @@ def cli():
             resource = api.create(resource_type, config)
             _set_cursor(resource_type, resource_id)
             print(f"created {resource_type}: {json.dumps(resource, indent=4)}")
-
-
-if __name__ == "__main__":
-    cli()
