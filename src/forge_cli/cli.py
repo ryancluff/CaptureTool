@@ -8,29 +8,6 @@ import wavio
 from forge_cli.api import ForgeApi
 
 FORGE_DIR = ".forge"
-SESSIONS_DIR = "sessions"
-CAPTURES_DIR = "captures"
-INPUTS_DIR = "inputs"
-
-INIT_API_CONFIG = {
-    "host": "localhost",
-    "port": 8000,
-    "protocol": "http",
-}
-
-INIT_SELECTED_CONFIG = {
-    "session": None,
-    "capture": None,
-    "input": None,
-}
-
-INIT_INTERFACE_CONFIG = {
-    "device": 4,
-    "samplerate": 48000,
-    "blocksize": 512,
-    "send_channel": 1,
-    "frequency": 1000,
-}
 
 
 def _read_config(
@@ -41,167 +18,129 @@ def _read_config(
     return config
 
 
-def _write_config(
-    output_dir: Path,
-    config: dict,
-    name: str = "config",
-    overwrite: bool = False,
-) -> None:
-    config_path = Path(output_dir, name + ".json")
-    if not config_path.exists() or overwrite:
-        with open(config_path, "w") as fp:
-            json.dump(config, fp, indent=4)
+def _init(api: str, overwrite: bool = False) -> Path:
+    init_db = {
+        "api": api,
+        "cursor": {resource_type: None for resource_type in ForgeApi.Resource.TYPES},
+    }
 
-
-def _init() -> Path:
     forge_dir = Path(FORGE_DIR)
     forge_dir.mkdir(exist_ok=True)
-    sessions_dir = Path(forge_dir, SESSIONS_DIR)
-    sessions_dir.mkdir(exist_ok=True)
-    inputs_dir = Path(forge_dir, INPUTS_DIR)
+    inputs_dir = Path(forge_dir, "inputs")
     inputs_dir.mkdir(exist_ok=True)
-    _write_config(
-        forge_dir,
-        INIT_API_CONFIG,
-        name="api",
-    )
-    _write_config(
-        forge_dir,
-        INIT_INTERFACE_CONFIG,
-        name="interface",
-    )
-    _write_config(
-        forge_dir,
-        INIT_SELECTED_CONFIG,
-        name="selected",
-    )
+    captures_dir = Path(forge_dir, "captures")
+    captures_dir.mkdir(exist_ok=True)
+
+    db_path = Path(forge_dir, "db.json")
+    if not db_path.exists() or overwrite:
+        _write_db(init_db)
     return forge_dir
 
 
-def _create_session_dir(
-    session_resource: dict,
-) -> Path:
-    session_dir = Path(FORGE_DIR, SESSIONS_DIR, session_resource["id"])
-    session_dir.mkdir(exist_ok=False)
-    captures_dir = Path(session_dir, CAPTURES_DIR)
-    captures_dir.mkdir(exist_ok=False)
-    return session_dir
+def _read_db() -> dict:
+    with open(Path(FORGE_DIR, "db.json"), "r") as fp:
+        db = json.load(fp)
+    return db
 
 
-def _create_capture_dir(
-    capture_resource: dict,
-) -> Path:
-    capture_dir = Path(FORGE_DIR, SESSIONS_DIR, capture_resource["session"], CAPTURES_DIR, capture_resource["id"])
-    capture_dir.mkdir(exist_ok=False)
-    return capture_dir
+def _write_db(db: dict) -> None:
+    with open(Path(FORGE_DIR, "db.json"), "w") as fp:
+        json.dump(db, fp, indent=4)
 
 
-def _write_wav(path: Path, data: np.array, samplerate: int) -> None:
-    wavio.write(
-        str(path),
-        data,
-        samplerate,
-        sampwidth=3,
-    )
+def _get_api() -> dict:
+    db = _read_db()
+    return db["api"]
 
 
-def _get_selected(resource: str) -> str:
-    with open(Path(FORGE_DIR, "selected.json"), "r") as fp:
-        selected = json.load(fp)
-    return selected.get(resource)
+def _get_cursor(resource_type: str) -> str:
+    db = _read_db()
+    if resource_type not in db["cursor"] or db["cursor"][resource_type] is None:
+        raise ValueError(f"Resource {resource_type} not set")
+    return db["cursor"][resource_type]
 
 
-def _select(resource: str, resource_id: str) -> None:
-    with open(Path(FORGE_DIR, "selected.json"), "r") as fp:
-        selected = json.load(fp)
-    selected[resource] = resource_id
-    with open(Path(FORGE_DIR, "selected.json"), "w") as fp:
-        json.dump(selected, fp, indent=4)
+def _set_cursor(resource_type: str, resource_id: str) -> None:
+    db = _read_db()
+    db["cursor"][resource_type] = resource_id
+    _write_db(db)
 
 
 def cli():
     parser = ArgumentParser(description="forge cli")
+    parser.add_argument("--api", type=str, default="http://localhost:8000")
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite the db if it exists")
 
     subparsers = parser.add_subparsers(dest="command")
 
-    subparsers.add_parser("init", help="Set up persistent forge directories and api config")
+    list_parser = subparsers.add_parser("list", help="list forge resources")
+    list_parser.add_argument("resource_type", type=str, choices=ForgeApi.Resource.TYPES_PLURAL, help="resource type")
 
-    list_parser = subparsers.add_parser("list", help="List forge resources")
-    list_parser.add_argument("resource", type=str, choices=ForgeApi.Resource.TYPES_PLURAL, help="Resource to list")
+    create_parser = subparsers.add_parser("create", help="create a new forge resource")
+    create_parser.add_argument("resource_type", type=str, choices=ForgeApi.Resource.TYPES, help="resource type")
+    create_parser.add_argument("config_path", type=str, help="path to config file")
 
-    get_parser = subparsers.add_parser("get", help="Get a forge resource")
-    get_parser.add_argument("resource", type=str, choices=ForgeApi.Resource.TYPES, help="Resource to get")
-    get_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="ID of the resource to get")
+    get_parser = subparsers.add_parser("get", help="get a forge resource")
+    get_parser.add_argument("resource_type", type=str, choices=ForgeApi.Resource.TYPES, help="resource type")
+    get_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="resource id (or name)")
 
-    delete_parser = subparsers.add_parser("delete", help="Delete a forge resource")
-    delete_parser.add_argument("resource", type=str, choices=ForgeApi.Resource.TYPES, help="Resource to delete")
-    delete_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="ID of the resource to delete")
+    delete_parser = subparsers.add_parser("delete", help="delete a forge resource")
+    delete_parser.add_argument("resource_type", type=str, choices=ForgeApi.Resource.TYPES, help="resource type")
+    delete_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="resource id (or name)")
 
-    create_parser = subparsers.add_parser("create", help="Create a new forge resource")
-    create_subparsers = create_parser.add_subparsers(dest="resource")
+    upload_parser = subparsers.add_parser("upload", help="upload a file")
+    upload_parser.add_argument("resource_type", type=str, choices=ForgeApi.File.TYPES, help="resource type")
+    upload_parser.add_argument("file_path", type=str, help="path to file")
+    upload_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="resource id (or name)")
 
-    create_input_subparser = create_subparsers.add_parser("input", help="Create a new input resource")
-    create_input_subparser.add_argument("file_path", type=str, help="Path to input file")
-    create_input_subparser.add_argument("--name", type=str, default=None, help="Name of the input resource")
-    create_input_subparser.add_argument("--description", type=str, default="", help="Description of the input resource")
-
-    create_session_subparser = create_subparsers.add_parser("session", help="Create a new session resource")
-    create_session_subparser.add_argument("config_path", type=str, help="Path to session config file")
-
-    create_capture_subparser = create_subparsers.add_parser("capture", help="Create a new capture resource")
-    create_capture_subparser.add_argument("config_path", type=str, help="Path to capture config file")
+    download_parser = subparsers.add_parser("download", help="download a file")
+    download_parser.add_argument("resource_type", type=str, choices=ForgeApi.File.TYPES, help="resource type")
+    download_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="resource id (or name)")
 
     args = parser.parse_args()
 
-    if args.command == "init":
-        _init()
-        print(f"forge directory created at: {FORGE_DIR}. config files created with default values")
-        print(f"make adjustments to {FORGE_DIR}/api.json and {FORGE_DIR}/interface.json as needed")
-    else:
-        forge_dir = Path(FORGE_DIR)
-        if not forge_dir.exists():
-            print(f"forge directory not found at: {forge_dir}. run `init` first")
-            return
-        api = ForgeApi(_read_config(Path(forge_dir, "api.json")))
-        if args.command == "list":
-            resources = api.list(args.resource)
-            print(f"{args.resource}: {json.dumps(resources, indent=4)}")
-        elif args.command == "get":
-            resource = api.get(args.resource, args.resource_id)
-            _select(args.resource, args.resource_id)
-            print(f"{args.resource}: {json.dumps(resource, indent=4)}")
+    forge_dir = Path(FORGE_DIR)
+    if not forge_dir.exists() or args.overwrite:
+        _init(args.api, overwrite=args.overwrite)
+    api = ForgeApi(_get_api())
+
+    resource_type = args.resource_type
+
+    if args.command in ["get", "delete", "upload", "download"]:
+        if args.resource_id is not None:
+            _set_cursor(resource_type, args.resource_id)
+        resource_id = _get_cursor(resource_type)
+
+        if args.command == "get":
+            resource = api.get(resource_type, resource_id)
+            _set_cursor(resource_type, resource_id)
+            print(f"{resource_type}: {json.dumps(resource, indent=4)}")
         elif args.command == "delete":
-            resource = api.delete(args.resource, args.resource_id)
-            print(f"deleted {args.resource}: {json.dumps(resource, indent=4)}")
+            resource = api.delete(resource_type, resource_id)
+            print(f"deleted {resource_type}: {json.dumps(resource, indent=4)}")
+        elif args.command == "upload":
+            with open(args.file_path, "rb") as fp:
+                file_hash = hashlib.file_digest(fp, "sha256").hexdigest()
+            config = {
+                "hash": file_hash,
+            }
+            resource = api.update(resource_type, resource_id, config)
+            resource = api.upload(resource_type, resource_id, args.file_path)
+            print(f"uploaded {resource_type}: {json.dumps(resource, indent=4)}")
+    else:
+        if args.command == "list":
+            resources = api.list(resource_type)
+            print(f"{resource_type}: {json.dumps(resources, indent=4)}")
         elif args.command == "create":
-            if args.resource == "input":
-                with open(args.file_path, "rb") as fp:
-                    file_hash = hashlib.file_digest(fp, "sha256").hexdigest()
-                config = {
-                    "name": args.name if args.name else args.file_path.split("/")[-1],
-                    "description": args.description,
-                    "hash": file_hash,
-                }
-                resource = api.create(args.resource, config)
-                resource = api.upload(args.resource, resource["id"], args.file_path)
-                _select("input", resource["id"])
-            elif args.resource == "session":
-                session_config = _read_config(args.config_path)
-                resource = api.create(args.resource, session_config)
-                session_dir = _create_session_dir(resource)
-                _write_config(session_dir, resource, "session")
-                _select("session", resource["id"])
-            elif args.resource == "capture":
-                capture_config = _read_config(args.config_path)
-                capture_config["session"] = _get_selected("session")
-                capture_config["input"] = _get_selected("input")
-                resource = api.create(args.resource, capture_config)
-                capture_dir = _create_capture_dir(resource)
-                _write_config(capture_dir, resource, "capture")
-                _select("capture", resource["id"])
-            elif args.resource == "snapshot":
-                raise NotImplementedError("create snapshot not implemented")
-            print(f"created {args.resource}: {json.dumps(resource, indent=4)}")
+            config = _read_config(args.config_path)
+            if resource_type == "capture":
+                config["input"] = _get_cursor("input")
+                config["session"] = _get_cursor("session")
+            elif resource_type == "snapshot":
+                config["capture"] = _get_cursor("capture")
+            resource = api.create(resource_type, config)
+            _set_cursor(resource_type, resource_id)
+            print(f"created {resource_type}: {json.dumps(resource, indent=4)}")
 
 
 if __name__ == "__main__":
