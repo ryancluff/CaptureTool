@@ -139,5 +139,5 @@ def cli():
             elif resource_type == "snapshot":
                 config["capture"] = _get_cursor("capture")
             resource = api.create(resource_type, config)
-            _set_cursor(resource_type, resource_id)
+            _set_cursor(resource_type, resource["id"])
             print(f"created {resource_type}: {json.dumps(resource, indent=4)}")
