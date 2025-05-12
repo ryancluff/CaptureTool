@@ -3,7 +3,6 @@ import sys
 import threading
 import time
 
-import matplotlib.pyplot as plt
 import numpy as np
 import sounddevice as sd
 import wavio
