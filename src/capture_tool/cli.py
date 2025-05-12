@@ -6,7 +6,7 @@ from pathlib import Path
 import sounddevice as sd
 import wavio
 
-from core.util import timestamp
+from core.util import read_config, write_config, timestamp
 
 from capture_tool.audio import (
     int_to_dbfs,
@@ -37,22 +37,6 @@ def _print_interface(device: int) -> None:
         else:
             supported_samplerates.append(fs)
     print("supported samplerates: " + str(supported_samplerates))
-
-
-def _read_config(path: Path) -> dict:
-    with open(path, "r") as fp:
-        config = json.load(fp)
-        config["config_path"] = str(path)
-    return config
-
-
-def _write_config(
-    capture_dir: Path,
-    config: dict,
-    name: str = "config",
-) -> None:
-    with open(Path(capture_dir, name + ".json"), "w") as fp:
-        json.dump(config, fp, indent=4)
 
 
 def _create_captures_dir(path: str = "captures") -> Path:
@@ -196,14 +180,14 @@ def _test_tone(interface: AudioInterface, unit: AudioInterface.TestToneUnit, lev
 
 
 def _capture(config_path: Path, no_show: bool = False) -> None:
-    config = _read_config(config_path)
+    config = read_config(config_path)
     interface = AudioInterface(config)
     captures_dir = _create_captures_dir()
     capture_dir = _create_capture_dir(captures_dir)
 
     # calibrate interface send level
     _calibrate_send(interface, send_level_dbfs=-3.0)
-    _write_config(capture_dir, interface.get_config())
+    write_config(capture_dir, interface.get_config())
 
     print("verify interface send and returns are connected to the device to be modeled")
     stream, get_frame, send_audio, return_audio, peak_levels, done = interface.get_capture_stream()
@@ -276,7 +260,7 @@ def _capture(config_path: Path, no_show: bool = False) -> None:
 
     # Calibrate interface return levels
     _calibrate_returns(interface, send_level_dbfs=-3.0)
-    _write_config(capture_dir, interface.get_config())
+    write_config(capture_dir, interface.get_config())
 
 
 def cli():
@@ -304,7 +288,7 @@ def cli():
     elif args.command == "interface":
         _print_interface(args.interface)
     elif args.command == "testtone":
-        interface_config = _read_config(args.interface_config_path)
+        interface_config = read_config(args.interface_config_path)
         interface = AudioInterface(interface_config)
         _test_tone(interface, args.type, args.level)
     elif args.command == "run":
