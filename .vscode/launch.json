@@ -59,7 +59,7 @@
             "args": [
                 "create",
                 "input",
-                "config/input.json"
+                "configs/input.json"
             ]
         },
         {
@@ -72,7 +72,7 @@
             "args": [
                 "create",
                 "session",
-                "config/session.json"
+                "configs/session.json"
             ]
         },
         {
@@ -85,7 +85,7 @@
             "args": [
                 "create",
                 "capture",
-                "config/capture.json"
+                "configs/capture.json"
             ]
         },
         {
@@ -98,7 +98,7 @@
             "args": [
                 "create",
                 "snapshot",
-                "config/session.json"
+                "configs/session.json"
             ]
         },
         {
@@ -149,8 +149,7 @@
             "justMyCode": false,
             "args": [
                 "get",
-                "snapshot",
-                "TODO"
+                "snapshot"
             ]
         },
         {
@@ -163,7 +162,7 @@
             "args": [
                 "delete",
                 "input",
-                "TODO"
+                "v3_0_0.wav"
             ]
         },
         {
@@ -175,8 +174,7 @@
             "justMyCode": false,
             "args": [
                 "delete",
-                "session",
-                "TODO"
+                "session"
             ]
         },
         {
@@ -188,8 +186,7 @@
             "justMyCode": false,
             "args": [
                 "delete",
-                "capture",
-                "TODO"
+                "capture"
             ]
         },
         {
@@ -201,8 +198,7 @@
             "justMyCode": false,
             "args": [
                 "delete",
-                "snapshot",
-                "TODO"
+                "snapshot"
             ]
         },
         {
@@ -215,8 +211,7 @@
             "args": [
                 "upload",
                 "input",
-                "inputs/v3_0_0.wav",
-                "TODO"
+                "inputs/v3_0_0.wav"
             ]
         },
         {
@@ -229,8 +224,7 @@
             "args": [
                 "upload",
                 "capture",
-                ".forge/capture/output.wav",
-                "TODO"
+                ".forge/capture/output.wav"
             ]
         },
         {
@@ -242,8 +236,7 @@
             "justMyCode": false,
             "args": [
                 "download",
-                "input",
-                "TODO"
+                "input"
             ]
         },
         {
@@ -255,8 +248,7 @@
             "justMyCode": false,
             "args": [
                 "download",
-                "capture",
-                "TODO"
+                "capture"
             ]
         },
     ]
