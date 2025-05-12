@@ -40,7 +40,10 @@ def cli():
 
     args = parser.parse_args()
 
-    db = ForgeDB(args.api, args.overwrite)
+    db = ForgeDB(
+        api=args.api,
+        overwrite=args.overwrite,
+    )
     api = ForgeApi(db.get_api())
 
     resource_type = args.resource_type
