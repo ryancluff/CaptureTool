@@ -1,69 +1,10 @@
 from argparse import ArgumentParser
 import hashlib
 import json
-import numpy as np
-from pathlib import Path
-import wavio
 
+from core.db import ForgeDB
+from core.util import read_config
 from forge_cli.api import ForgeApi
-
-FORGE_DIR = ".forge"
-
-
-def _read_config(
-    path: Path,
-) -> dict:
-    with open(path, "r") as fp:
-        config = json.load(fp)
-    return config
-
-
-def _init(api: str, overwrite: bool = False) -> Path:
-    init_db = {
-        "api": api,
-        "cursor": {resource_type: None for resource_type in ForgeApi.Resource.TYPES},
-    }
-
-    forge_dir = Path(FORGE_DIR)
-    forge_dir.mkdir(exist_ok=True)
-    inputs_dir = Path(forge_dir, "inputs")
-    inputs_dir.mkdir(exist_ok=True)
-    captures_dir = Path(forge_dir, "captures")
-    captures_dir.mkdir(exist_ok=True)
-
-    db_path = Path(forge_dir, "db.json")
-    if not db_path.exists() or overwrite:
-        _write_db(init_db)
-    return forge_dir
-
-
-def _read_db() -> dict:
-    with open(Path(FORGE_DIR, "db.json"), "r") as fp:
-        db = json.load(fp)
-    return db
-
-
-def _write_db(db: dict) -> None:
-    with open(Path(FORGE_DIR, "db.json"), "w") as fp:
-        json.dump(db, fp, indent=4)
-
-
-def _get_api() -> dict:
-    db = _read_db()
-    return db["api"]
-
-
-def _get_cursor(resource_type: str) -> str:
-    db = _read_db()
-    if resource_type not in db["cursor"] or db["cursor"][resource_type] is None:
-        raise ValueError(f"Resource {resource_type} not set")
-    return db["cursor"][resource_type]
-
-
-def _set_cursor(resource_type: str, resource_id: str) -> None:
-    db = _read_db()
-    db["cursor"][resource_type] = resource_id
-    _write_db(db)
 
 
 def cli():
@@ -99,21 +40,19 @@ def cli():
 
     args = parser.parse_args()
 
-    forge_dir = Path(FORGE_DIR)
-    if not forge_dir.exists() or args.overwrite:
-        _init(args.api, overwrite=args.overwrite)
-    api = ForgeApi(_get_api())
+    db = ForgeDB(args.api, args.overwrite)
+    api = ForgeApi(db.get_api())
 
     resource_type = args.resource_type
 
     if args.command in ["get", "delete", "upload", "download"]:
         if args.resource_id is not None:
-            _set_cursor(resource_type, args.resource_id)
-        resource_id = _get_cursor(resource_type)
+            db.set_cursor(resource_type, args.resource_id)
+        resource_id = db.get_cursor(resource_type)
 
         if args.command == "get":
             resource = api.get(resource_type, resource_id)
-            _set_cursor(resource_type, resource_id)
+            db.set_cursor(resource_type, resource_id)
             print(f"{resource_type}: {json.dumps(resource, indent=4)}")
         elif args.command == "delete":
             resource = api.delete(resource_type, resource_id)
@@ -132,12 +71,12 @@ def cli():
             resources = api.list(resource_type)
             print(f"{resource_type}: {json.dumps(resources, indent=4)}")
         elif args.command == "create":
-            config = _read_config(args.config_path)
+            config = read_config(args.config_path)
             if resource_type == "capture":
-                config["input"] = _get_cursor("input")
-                config["session"] = _get_cursor("session")
+                config["input"] = db.get_cursor("input")
+                config["session"] = db.get_cursor("session")
             elif resource_type == "snapshot":
-                config["capture"] = _get_cursor("capture")
+                config["capture"] = db.get_cursor("capture")
             resource = api.create(resource_type, config)
-            _set_cursor(resource_type, resource["id"])
+            db.set_cursor(resource_type, resource["id"])
             print(f"created {resource_type}: {json.dumps(resource, indent=4)}")
