@@ -40,14 +40,12 @@ def cli():
 
     args = parser.parse_args()
 
-    db = ForgeDB(
-        api=args.api,
-        overwrite=args.overwrite,
-    )
+    db = ForgeDB(overwrite=args.overwrite)
+    if args.api is not None:
+        db.set_api(args.api)
+
     api = ForgeApi(db.get_api())
-
     resource_type = args.resource_type
-
     if args.command in ["get", "delete", "upload", "download"]:
         if args.resource_id is not None:
             db.set_cursor(resource_type, args.resource_id)

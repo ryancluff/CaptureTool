@@ -25,7 +25,10 @@ class ForgeDB:
         with open(Path(cls.FORGE_DIR, "db.json"), "w") as fp:
             json.dump(db, fp, indent=4)
 
-    def __init__(self, api: str = None, overwrite: bool = False):
+    def __init__(
+        self,
+        overwrite: bool = False,
+    ):
         forge_dir = Path(self.FORGE_DIR)
         forge_dir.mkdir(exist_ok=True)
         inputs_dir = Path(forge_dir, "inputs")
@@ -35,15 +38,18 @@ class ForgeDB:
 
         db_path = Path(forge_dir, "db.json")
         if not db_path.exists() or overwrite:
-            init_db = self.INIT_DB
-            init_db["api"] = api
-            self._write_db(init_db)
+            self._write_db(self.INIT_DB)
             print(f"forge db initialized.")
             print(f"the db file is located at {self.FORGE_DIR}/db.json and can be edited directly.")
 
-    def get_api(self) -> dict:
+    def get_api(self) -> str:
         db = self._read_db()
         return db["api"]
+
+    def set_api(self, api_str: str) -> None:
+        db = self._read_db()
+        db["api"] = api_str
+        self._write_db(db)
 
     def get_cursor(self, resource_type: str) -> str:
         db = self._read_db()
