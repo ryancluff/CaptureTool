@@ -6,6 +6,8 @@ from pathlib import Path
 import sounddevice as sd
 import wavio
 
+from core.util import timestamp
+
 from capture_tool.audio import (
     int_to_dbfs,
     v_rms_to_dbu,
@@ -13,7 +15,6 @@ from capture_tool.audio import (
     process_recordings,
 )
 from capture_tool.interface import AudioInterface
-from capture_tool.util import timestamp
 
 
 def _print_interfaces() -> None:

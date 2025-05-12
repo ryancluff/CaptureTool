@@ -11,14 +11,7 @@ class ForgeDB:
     INIT_DB = {
         "api": None,
         "cursor": {resource_type: None for resource_type in ForgeApi.Resource.TYPES},
-        "interface": {
-            "device": None,
-            "blocksize": None,
-            "send_channel": None,
-            "return_channels": None,
-            "send_level_dbu": None,
-            "return_levels_dbu": None,
-        },
+        "interface": AudioInterface.INIT_SETTINGS,
     }
 
     @classmethod

@@ -16,6 +16,15 @@ from capture_tool.wave import SineWave
 
 
 class AudioInterface:
+    INIT_SETTINGS = {
+        "device": sd.default.device,
+        "blocksize": 512,
+        "send_channel": 1,
+        "return_channels": 1,
+        "send_level_dbu": None,
+        "return_levels_dbu": None,
+    }
+
     class TestToneUnit(Enum):
         DBFS = 0
         DBU = 1
