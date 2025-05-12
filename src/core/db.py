@@ -25,7 +25,7 @@ class ForgeDB:
         with open(Path(cls.FORGE_DIR, "db.json"), "w") as fp:
             json.dump(db, fp, indent=4)
 
-    def __init__(self, api: str = None, overwrite: bool = False) -> Path:
+    def __init__(self, api: str = None, overwrite: bool = False):
         forge_dir = Path(self.FORGE_DIR)
         forge_dir.mkdir(exist_ok=True)
         inputs_dir = Path(forge_dir, "inputs")
@@ -38,7 +38,8 @@ class ForgeDB:
             init_db = self.INIT_DB
             init_db["api"] = api
             self._write_db(init_db)
-        return forge_dir
+            print(f"forge db initialized.")
+            print(f"the db file is located at {self.FORGE_DIR}/db.json and can be edited directly.")
 
     def get_api(self) -> dict:
         db = self._read_db()
