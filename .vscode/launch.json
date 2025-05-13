@@ -2,7 +2,41 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "list inputs",
+            "name": "capture-tool interfaces",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/capture_tool",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "interfaces"
+            ]
+        },
+        {
+            "name": "capture-tool interface",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/capture_tool",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "interface"
+            ]
+        },
+        {
+            "name": "capture-tool interface 0",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/capture_tool",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "interface",
+                "0"
+            ]
+        },
+        {
+            "name": "forge-cli list inputs",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -14,7 +48,7 @@
             ]
         },
         {
-            "name": "list sessions",
+            "name": "forge-cli list sessions",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -26,7 +60,7 @@
             ]
         },
         {
-            "name": "list captures",
+            "name": "forge-cli list captures",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -38,7 +72,7 @@
             ]
         },
         {
-            "name": "list snapshots",
+            "name": "forge-cli list snapshots",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -50,7 +84,7 @@
             ]
         },
         {
-            "name": "create input",
+            "name": "forge-cli create input",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -63,7 +97,7 @@
             ]
         },
         {
-            "name": "create session",
+            "name": "forge-cli create session",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -76,7 +110,7 @@
             ]
         },
         {
-            "name": "create capture",
+            "name": "forge-cli create capture",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -89,7 +123,7 @@
             ]
         },
         {
-            "name": "create snapshot",
+            "name": "forge-cli create snapshot",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -102,7 +136,7 @@
             ]
         },
         {
-            "name": "get input",
+            "name": "forge-cli get input",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -115,7 +149,7 @@
             ]
         },
         {
-            "name": "get session",
+            "name": "forge-cli get session",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -128,7 +162,7 @@
             ]
         },
         {
-            "name": "get capture",
+            "name": "forge-cli get capture",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -141,7 +175,7 @@
             ]
         },
         {
-            "name": "get snapshot",
+            "name": "forge-cli get snapshot",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -153,7 +187,7 @@
             ]
         },
         {
-            "name": "delete input",
+            "name": "forge-cli delete input",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -166,7 +200,7 @@
             ]
         },
         {
-            "name": "delete session",
+            "name": "forge-cli delete session",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -178,7 +212,7 @@
             ]
         },
         {
-            "name": "delete capture",
+            "name": "forge-cli delete capture",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -190,7 +224,7 @@
             ]
         },
         {
-            "name": "delete snapshot",
+            "name": "forge-cli delete snapshot",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -202,7 +236,7 @@
             ]
         },
         {
-            "name": "upload input",
+            "name": "forge-cli upload input",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -215,7 +249,7 @@
             ]
         },
         {
-            "name": "upload capture",
+            "name": "forge-cli upload capture",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -228,7 +262,7 @@
             ]
         },
         {
-            "name": "download input",
+            "name": "forge-cli download input",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -240,7 +274,7 @@
             ]
         },
         {
-            "name": "download capture",
+            "name": "forge-cli download capture",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/forge_cli",
@@ -249,6 +283,21 @@
             "args": [
                 "download",
                 "capture"
+            ]
+        },
+        {
+            "name": "forge-cli --overwrite list inputs",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/forge_cli",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--api",
+                "http://localhost:8000",
+                "--overwrite",
+                "list",
+                "inputs"
             ]
         },
     ]
