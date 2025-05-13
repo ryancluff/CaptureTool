@@ -6,6 +6,7 @@ from pathlib import Path
 import sounddevice as sd
 import wavio
 
+from core.db import ForgeDB
 from core.util import read_config, write_config, timestamp
 
 from capture_tool.audio import (
@@ -22,8 +23,6 @@ def _print_interfaces() -> None:
 
 
 def _print_interface(device: int) -> None:
-    if device == -1:
-        device = sd.default.device
     interface = sd.query_devices(device)
     for key, value in interface.items():
         print(f"{key}: {value}")
@@ -270,7 +269,7 @@ def cli():
 
     subparsers.add_parser("interfaces", help="List audio interfaces")
     interface_parser = subparsers.add_parser("interface")
-    interface_parser.add_argument("interface", nargs="?", type=int, default=-1, help="interface id")
+    interface_parser.add_argument("interface", nargs="?", type=int, default=None, help="interface id")
 
     testtone_parser = subparsers.add_parser("testtone", help="Generate a test tone")
     testtone_parser.add_argument("interface_config_path", type=str)
@@ -283,23 +282,22 @@ def cli():
 
     args = parser.parse_args()
 
+    db = ForgeDB()
+    interface_config = db.get_interface()
     if args.command == "interfaces":
         _print_interfaces()
     elif args.command == "interface":
-        _print_interface(args.interface)
+        device = args.interface if args.interface else interface_config["device"]
+        _print_interface(device)
     elif args.command == "testtone":
         interface_config = read_config(args.interface_config_path)
         interface = AudioInterface(interface_config)
         _test_tone(interface, args.type, args.level)
     elif args.command == "run":
         forge_dir, session_dir, capture_dir = Path(args.capture_path).parts
-        interface_config = _read_config(Path(forge_dir, "interface.json"))
-        selected_config = _read_config(Path(forge_dir, "selected.json"))
-        session_config = _read_config(Path(forge_dir, session_dir, "session.json"))
-        capture_config = _read_config(Path(forge_dir, session_dir, capture_dir, "capture.json"))
+        interface_config = read_config(Path(forge_dir, "interface.json"))
+        selected_config = read_config(Path(forge_dir, "selected.json"))
+        session_config = read_config(Path(forge_dir, session_dir, "session.json"))
+        capture_config = read_config(Path(forge_dir, session_dir, capture_dir, "capture.json"))
         interface = AudioInterface(interface_config)
         _capture(args.capture_config_path, no_show=args.no_show)
-
-
-if __name__ == "__main__":
-    cli()
