@@ -16,7 +16,7 @@ from capture_tool.wave import SineWave
 
 class AudioInterface:
     INIT_SETTINGS = {
-        "device": sd.default.device,
+        "device": sd.default.device[1],
         "blocksize": 512,
         "send_channel": 1,
         "return_channels": 1,
