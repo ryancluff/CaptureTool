@@ -61,3 +61,12 @@ class ForgeDB:
         db = self._read_db()
         db["cursor"][resource_type] = resource_id
         self._write_db(db)
+
+    def get_interface(self) -> dict:
+        db = self._read_db()
+        return db["interface"]
+
+    def set_interface(self, interface: dict) -> None:
+        db = self._read_db()
+        db["interface"] = interface
+        self._write_db(db)
