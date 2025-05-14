@@ -36,6 +36,41 @@
             ]
         },
         {
+            "name": "capture-tool testtone",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/capture_tool",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "testtone",
+            ]
+        },
+        {
+            "name": "capture-tool testtone dbfs",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/capture_tool",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "testtone",
+                "dbfs"
+            ]
+        },
+        {
+            "name": "capture-tool testtone dbu",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/capture_tool",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "testtone",
+                "dbu"
+            ]
+        },
+        {
             "name": "forge-cli list inputs",
             "type": "debugpy",
             "request": "launch",
