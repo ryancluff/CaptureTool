@@ -63,7 +63,7 @@ def _calibrate_send(
     interface: AudioInterface,
     send_level_dbfs: float = -3.0,
 ) -> None:
-    if interface._send_level_dbu is None:
+    if interface.send_level_dbu is None:
         print("send level calibration required. verify interface send is only connect to the voltmeter.")
         input("press enter to start send level calibration...")
         print("starting send level calibration...")
@@ -77,7 +77,7 @@ def _calibrate_send(
     else:
         print("send level calibration not required")
         print("the following values were supplied config file, skipping calibration")
-    print(f'"_send_level_dbu ": {interface._send_level_dbu:f}')
+    print(f'"_send_level_dbu ": {interface.send_level_dbu:f}')
     print("recalibrate following any settings (gain) or hardware changes")
 
 
@@ -145,16 +145,18 @@ def _plot_latency(
     plt.show(block=True)
 
 
-def _test_tone(interface: AudioInterface, unit: AudioInterface.TestToneUnit, level: float) -> None:
-    if unit == AudioInterface.TestToneUnit.DBFS:
+def _test_tone(interface: AudioInterface, unit: str, level: float) -> None:
+    if unit == "dbfs":
+        unit = AudioInterface.TestToneUnit.DBFS
         if level is None:
             level = -3
-    elif unit == AudioInterface.TestToneUnit.DBU:
+    elif unit == "dbu":
+        unit = AudioInterface.TestToneUnit.DBU
         _calibrate_send(interface, send_level_dbfs=-3.0)
         if level is None:
             level = 3
 
-    stream, get_output_level_dbfs, increase_output_level, decrease_output_level = interface.get_test_tone_stream(
+    stream, get_output_level_dbfs, increase_output_level, decrease_output_level = interface.get_testtone_stream(
         level, unit
     )
 
