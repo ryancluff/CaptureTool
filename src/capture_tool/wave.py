@@ -51,9 +51,9 @@ class Wave:
 class SineWave(Wave):
     def __init__(
         self,
-        frequency: float = 1000.0,
         samplerate: int = 48000,
         dbfs: float = -12.0,
+        frequency: float = 1000.0,
         loop: bool = True,
     ):
         super().__init__(samplerate, dbfs, loop)
