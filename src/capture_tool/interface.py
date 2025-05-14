@@ -11,6 +11,7 @@ from capture_tool.audio import (
     db_to_scalar,
 )
 
+from capture_tool.stream import TestToneStream
 from capture_tool.wave import SineWave
 
 
@@ -23,10 +24,6 @@ class AudioInterface:
         "send_level_dbu": None,
         "return_levels_dbu": None,
     }
-
-    class TestToneUnit(Enum):
-        DBFS = 0
-        DBU = 1
 
     class ClipException(Exception):
         def __init__(self, channel, dbfs):
@@ -270,15 +267,15 @@ class AudioInterface:
     def get_testtone_stream(
         self,
         output_level: float,
-        unit: TestToneUnit = TestToneUnit.DBFS,
+        unit: TestToneStream.TestToneUnit = TestToneStream.TestToneUnit.DBFS,
     ) -> tuple[sd.RawOutputStream, callable, callable, callable]:
-        if unit == AudioInterface.TestToneUnit.DBFS and output_level > 0.0:
+        if unit == TestToneStream.TestToneUnit.DBFS and output_level > 0.0:
             raise ValueError("output level must be negative for dbfs test tone")
 
         def get_output_level_dbfs():
-            if unit == AudioInterface.TestToneUnit.DBFS:
+            if unit == TestToneStream.TestToneUnit.DBFS:
                 return output_level
-            elif unit == AudioInterface.TestToneUnit.DBU:
+            elif unit == TestToneStream.TestToneUnit.DBU:
                 return self.send_dbfs_to_dbu(output_level)
 
         sine_wave = SineWave(dbfs=get_output_level_dbfs())
