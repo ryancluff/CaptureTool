@@ -23,8 +23,8 @@ class Wave:
         self.samplerate = samplerate
         self.dbfs = dbfs
         self.loop = loop
-        self.lookup_table = None
-        self.len = None
+        self.unscaled_audio = audio
+        self.audio = self.unscaled_audio * self.db_to_scalar(dbfs)
 
     def __iter__(self):
         return self
@@ -37,7 +37,10 @@ class Wave:
                 raise StopIteration
         value = self.lookup_table[self.frame]
         self.frame += 1
-        return value
+        return self.audio[self.frame]
+
+    def __len__(self):
+        return len(self.audio)
 
     def reset(self):
         self.frame = 0
@@ -46,6 +49,10 @@ class Wave:
         if samples is not None:
             return np.array([next(self) for _ in range(samples)])
         return np.array([next(self) for _ in range(int(seconds * self.samplerate))])
+
+    def set_level(self, dbfs: float):
+        self.dbfs = dbfs
+        self.audio = self.unscaled_audio * self.db_to_scalar(dbfs)
 
 
 class SineWave(Wave):

@@ -19,4 +19,4 @@ if __name__ == "__main__":
         dbfs=dbfs,
         loop=False,
     )
-    wavio.write("sine_sweep.wav", w.lookup_table, sample_rate, sampwidth=3)
+    wavio.write("sine_sweep.wav", w.audio, sample_rate, sampwidth=3)
