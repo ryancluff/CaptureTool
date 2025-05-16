@@ -17,7 +17,7 @@ class Stream:
         self.interface = interface
         self.done = threading.Event()
 
-    def pack(data: np.array) -> bytes:
+    def pack(data: np.ndarray) -> bytes:
         return b"".join(
             int(sample).to_bytes(
                 3,
@@ -27,7 +27,7 @@ class Stream:
             for sample in data.flatten()
         )
 
-    def unpack(data: bytes, channels: int) -> np.array:
+    def unpack(data: bytes, channels: int) -> np.ndarray:
         return np.array(
             [
                 int.from_bytes(

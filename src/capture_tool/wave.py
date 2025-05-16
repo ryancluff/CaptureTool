@@ -12,10 +12,10 @@ class Wave:
 
     # Convert 24 bit audio data to dBFS
     @classmethod
-    def int_to_dbfs(cls, max_val: np.array) -> np.array:
+    def int_to_dbfs(cls, max_val: np.ndarray) -> np.ndarray:
         return 20 * np.log10(max_val / (cls.MAX_VAL_INT24))
 
-    def __init__(self, samplerate: int, dbfs: float, loop: bool):
+    def __init__(self, audio: np.ndarray, samplerate: int, dbfs: float, loop: bool):
         if type(self) is Wave:
             raise Exception("Wave is an abstract class and cannot be instantiated directly")
 

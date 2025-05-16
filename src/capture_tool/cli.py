@@ -50,7 +50,7 @@ def _create_capture_dir(captures_dir: Path, path: str = timestamp()) -> Path:
     return captures_dir
 
 
-def _write_wav(path: Path, data: np.array, samplerate: int) -> None:
+def _write_wav(path: Path, data: np.ndarray, samplerate: int) -> None:
     wavio.write(
         str(path),
         data,
@@ -116,11 +116,11 @@ def _calibrate_returns(
 def _plot_latency(
     channel: int,
     samplerate: int,
-    send_audio: np.array,
-    return_audio: np.array,
-    processed_return_audio: np.array,
-    channel_delays: np.array,
-    channel_inversions: np.array,
+    send_audio: np.ndarray,
+    return_audio: np.ndarray,
+    processed_return_audio: np.ndarray,
+    channel_delays: np.ndarray,
+    channel_inversions: np.ndarray,
 ) -> None:
     samples = samplerate * 5
     plt.figure(figsize=(16, 5))

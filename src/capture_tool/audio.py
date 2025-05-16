@@ -21,7 +21,7 @@ def dbu_to_v_rms(dbu: float) -> float:
 
 
 # Convert 24 bit audio data to dBFS
-def int_to_dbfs(max_val: np.array) -> np.array:
+def int_to_dbfs(max_val: np.ndarray) -> np.ndarray:
     return 20 * np.log10(max_val / (MAX_VAL_INT24))
 
 

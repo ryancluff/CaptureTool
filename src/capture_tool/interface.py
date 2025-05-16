@@ -107,7 +107,7 @@ class AudioInterface:
 
     # Convert floating-point audio data to 24-bit data
     @classmethod
-    def pack(cls, data: np.array) -> bytes:
+    def pack(cls, data: np.ndarray) -> bytes:
         return b"".join(
             int(sample).to_bytes(
                 3,
@@ -119,7 +119,7 @@ class AudioInterface:
 
     # Convert 24-bit data to floating-point audio data
     @classmethod
-    def unpack(cls, data: bytes, channels: int) -> np.array:
+    def unpack(cls, data: bytes, channels: int) -> np.ndarray:
         return np.array(
             [
                 int.from_bytes(
