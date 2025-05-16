@@ -30,6 +30,7 @@ class Stream:
             for sample in data.flatten()
         )
 
+    @staticmethod
     def unpack(data: bytes, channels: int) -> np.ndarray:
         return np.array(
             [
