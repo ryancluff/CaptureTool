@@ -20,6 +20,7 @@ class Stream:
         self.interface = interface
         self.done = threading.Event()
 
+    @staticmethod
     def pack(data: np.ndarray) -> bytes:
         return b"".join(
             int(sample).to_bytes(
