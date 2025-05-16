@@ -85,7 +85,7 @@ def _calibrate_returns(
     interface: AudioInterface,
     send_level_dbfs: float = -3.0,
 ) -> None:
-    if interface._return_levels_dbu is None:
+    if interface.return_levels_dbu is None:
         print("return level calibration required. connect the send output to each return channel one at a time")
         input("press enter to start return level calibration...")
         print("starting return levels calibration...")
@@ -109,7 +109,7 @@ def _calibrate_returns(
     else:
         print("return level calibration not required")
         print("the following values were supplied config file, skipping calibration")
-    print(f'"_return_levels_dbu ": {interface._return_levels_dbu:f}')
+    print(f'"_return_levels_dbu ": {interface.return_levels_dbu:f}')
     print("recalibrate following any settings (gain) or hardware changes")
 
 
