@@ -3,6 +3,10 @@ import requests
 
 
 class ForgeApi:
+    DEFAUT_HEADERS = {
+        "Content-Type": "application/json",
+    }
+
     class Resource:
         TYPES = ["input", "session", "capture", "snapshot"]
         TYPES_PLURAL = [RESOURCE + "s" for RESOURCE in TYPES]
@@ -17,62 +21,91 @@ class ForgeApi:
     class File:
         TYPES = ["input", "capture"]
 
+    class StatusException(Exception):
+        def __init__(self, method: str, url: str, status_code: int, text: str):
+            self.method = method
+            self.url = url
+            self.status_code = status_code
+            self.text = text
+
+        def __str__(self):
+            return f"Request failed: {self.method} {self.url} {self.status_code} {self.text}"
+
     def __init__(self, api_str: str):
         self.api_str = api_str
 
-    def _request(
-        self,
-        method: str,
-        url: str,
-        data: dict | bytes | None = None,
-        status_code: int = 200,
-    ) -> dict:
-        if isinstance(data, bytes):
-            headers = {
-                "Content-Type": "audio/wav",
-                "Content-Disposition": "attachment; filename=upload.wav",
-            }
-        else:
-            headers = {
-                "Content-Type": "application/json",
-            }
-            data = json.dumps(data) if data else None
-        response = requests.request(method, url, headers=headers, data=data)
-        if response.status_code != status_code:
-            raise Exception(f"Request failed: {method} {url} {response.status_code} {response.text}")
-        if not response.content:
-            return {}
-        return response.json()
-
     def list(self, resource_type: str) -> list:
         resource = self.Resource(resource_type)
-        return self._request("GET", f"{self.api_str}/{resource.type}/")
+        method = "GET"
+        url = f"{self.api_str}/{resource.type}/"
+        response = requests.request(method, url)
+        if response.status_code != 200:
+            raise self.StatusException(method, url, response.status_code, response.text)
+        result: list = response.json()
+        return result
 
     def create(self, resource_type: str, config: dict) -> dict:
         resource = self.Resource(resource_type)
-        return self._request("POST", f"{self.api_str}/{resource.type}/", data=config, status_code=201)
+        method = "POST"
+        url = f"{self.api_str}/{resource.type}/"
+        response = requests.request(method, url, headers=self.DEFAUT_HEADERS, data=json.dumps(config))
+        if response.status_code != 201:
+            raise self.StatusException(method, url, response.status_code, response.text)
+        result: dict = response.json()
+        return result
 
     def get(self, resource_type: str, resource_id: str) -> dict:
         resource = self.Resource(resource_type)
-        return self._request("GET", f"{self.api_str}/{resource.type}/{resource_id}/")
+        method = "GET"
+        url = f"{self.api_str}/{resource.type}/{resource_id}/"
+        response = requests.request(method, url)
+        if response.status_code != 200:
+            raise self.StatusException(method, url, response.status_code, response.text)
+        result: dict = response.json()
+        return result
 
     def update(self, resource_type: str, resource_id: str, config: dict) -> dict:
         resource = self.Resource(resource_type)
-        return self._request("PATCH", f"{self.api_str}/{resource.type}/{resource_id}/", data=config)
+        method = "PATCH"
+        url = f"{self.api_str}/{resource.type}/{resource_id}/"
+        response = requests.request(method, url, headers=self.DEFAUT_HEADERS, data=json.dumps(config))
+        if response.status_code != 201:
+            raise self.StatusException(method, url, response.status_code, response.text)
+        result: dict = response.json()
+        return result
 
     def delete(self, resource_type: str, resource_id: str) -> dict:
         resource = self.Resource(resource_type)
-        return self._request("DELETE", f"{self.api_str}/{resource.type}/{resource_id}/")
+        method = "DELETE"
+        url = f"{self.api_str}/{resource.type}/{resource_id}/"
+        response = requests.request(method, url)
+        if response.status_code != 200:
+            raise self.StatusException(method, url, response.status_code, response.text)
+        result: dict = response.json()
+        return result
 
     def upload(self, resource_type: str, resource_id: str, file_path: str) -> dict:
-        resource = self.Resource(resource_type)
         with open(file_path, "rb") as fp:
             data = fp.read()
-        return self._request("PATCH", f"{self.api_str}/{resource.type}/{resource_id}/", data=data)
+        resource = self.Resource(resource_type)
+        method = "PATCH"
+        url = f"{self.api_str}/{resource.type}/{resource_id}/"
+        headers = {
+            "Content-Type": "audio/wav",
+            "Content-Disposition": "attachment; filename=upload.wav",
+        }
+        response = requests.request(method, url, headers=headers, data=data)
+        if response.status_code != 200:
+            raise self.StatusException(method, url, response.status_code, response.text)
+        result: dict = response.json()
+        return result
 
     def download(self, resource_type: str, resource_id: str) -> bytes:
         resource = self.Resource(resource_type)
-        response = requests.get(f"{self.api_str}/{resource.type}/{resource_id}/")
+        method = "GET"
+        url = f"{self.api_str}/{resource.type}/{resource_id}/"
+        response = requests.request(method, url)
         if response.status_code != 200:
-            raise Exception(f"Request failed: {response.status_code} {response.text}")
-        return response.content
+            raise self.StatusException(method, url, response.status_code, "")
+        result = response.content
+        return result
