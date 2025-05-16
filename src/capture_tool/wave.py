@@ -30,12 +30,11 @@ class Wave:
         return self
 
     def __next__(self):
-        if self.frame >= len(self.lookup_table):
+        if self.frame >= len(self.audio):
             if self.loop:
                 self.frame = 0
             else:
                 raise StopIteration
-        value = self.lookup_table[self.frame]
         self.frame += 1
         return self.audio[self.frame]
 
@@ -45,7 +44,7 @@ class Wave:
     def reset(self):
         self.frame = 0
 
-    def of_length(self, seconds: float = 2, samples: int = None) -> np.array:
+    def of_length(self, seconds: float = 2, samples: int | None = None) -> np.ndarray:
         if samples is not None:
             return np.array([next(self) for _ in range(samples)])
         return np.array([next(self) for _ in range(int(seconds * self.samplerate))])

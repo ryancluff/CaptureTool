@@ -24,7 +24,7 @@ def _print_interfaces() -> None:
 
 def _print_interface(device: int) -> None:
     interface = sd.query_devices(device)
-    for key, value in interface.items():
+    for key, value in dict(interface).items():
         print(f"{key}: {value}")
     samplerates = [32000, 44100, 48000, 88200, 96000, 128000, 192000]
     supported_samplerates = []

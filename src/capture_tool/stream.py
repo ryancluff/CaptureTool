@@ -10,6 +10,9 @@ from capture_tool.wave import Wave, SineWave
 
 
 class Stream:
+    interface: AudioInterface
+    done: threading.Event
+
     def __init__(self, interface: AudioInterface):
         if type(self) is Stream:
             raise Exception("Stream is an abstract class and cannot be instantiated directly")
