@@ -58,7 +58,7 @@ class SendStream(Stream):
             if status:
                 print(status, file=sys.stderr)
             if not send_audio.loop:
-                chunksize = min(send_audio.len - send_audio.frame, frames)
+                chunksize = min(len(send_audio) - send_audio.frame, frames)
             else:
                 chunksize = frames
 
