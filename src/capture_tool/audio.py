@@ -11,12 +11,12 @@ def db_to_scalar(db: float) -> float:
 
 
 # Convert RMS voltage to dBu
-def v_rms_to_dbu(v_rms: float) -> float:
-    return 20 * math.log10(v_rms / 0.7746)
+def vrms_to_dbu(vrms: float) -> float:
+    return 20 * math.log10(vrms / 0.7746)
 
 
 # Convert dBu to RMS voltage
-def dbu_to_v_rms(dbu: float) -> float:
+def dbu_to_vrms(dbu: float) -> float:
     return 0.7746 * 10 ** (dbu / 20)
 
 

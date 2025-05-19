@@ -11,7 +11,7 @@ from core.util import read_config, write_config, timestamp
 
 from capture_tool.audio import (
     int_to_dbfs,
-    v_rms_to_dbu,
+    vrms_to_dbu,
     calculate_latency,
     process_recordings,
 )
@@ -69,7 +69,7 @@ def _calibrate_send(
         print("starting send level calibration...")
         stream = interface.get_send_calibration_stream(send_level_dbfs=send_level_dbfs)
         with stream:
-            send_level_dbu = v_rms_to_dbu(float(input(f"enter measured rms voltage: ")))
+            send_level_dbu = vrms_to_dbu(float(input(f"enter measured rms voltage: ")))
         interface.set_send_level_dbu(send_level_dbu, send_level_dbfs)
         print("send level calibration complete")
         print("calibration value saved to config in capture directory")
