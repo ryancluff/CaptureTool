@@ -16,6 +16,7 @@ from capture_tool.audio import (
     process_recordings,
 )
 from capture_tool.interface import AudioInterface
+from capture_tool.voltmeter import measure_acrms
 
 
 def _print_interfaces() -> None:
@@ -69,7 +70,7 @@ def _calibrate_send(
         print("starting send level calibration...")
         stream = interface.get_send_calibration_stream(send_level_dbfs=send_level_dbfs)
         with stream:
-            send_level_dbu = vrms_to_dbu(float(input(f"enter measured rms voltage: ")))
+            send_level_dbu = vrms_to_dbu(measure_acrms())
         interface.set_send_level_dbu(send_level_dbu, send_level_dbfs)
         print("send level calibration complete")
         print("calibration value saved to config in capture directory")
