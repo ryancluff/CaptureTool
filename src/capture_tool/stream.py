@@ -1,4 +1,3 @@
-from enum import Enum
 import sys
 import threading
 
@@ -8,8 +7,9 @@ from numpy import typing as npt
 import sounddevice as sd
 import wavio
 
+from capture_tool.audio import int24_to_dbfs
 from capture_tool.interface import AudioInterface
-from capture_tool.wave import Wave, SineWave
+from capture_tool.wave import Wave, SineWave, AudioWave
 
 
 class Stream:
@@ -19,12 +19,22 @@ class Stream:
     stream: sd._StreamBase
     done: threading.Event
 
-    def __init__(self, interface: AudioInterface):
+    def __init__(self, interface: AudioInterface, wave: Wave):
         if type(self) is Stream:
             raise Exception("Stream is an abstract class and cannot be instantiated directly")
 
         self.interface = interface
+        self.send_audio = wave
+
         self.done = threading.Event()
+
+    def __enter__(self) -> sd._StreamBase:
+        self.stream.start()
+        return self.stream
+
+    def __exit__(self, *args) -> None:
+        self.stream.stop()
+        self.stream.close()
 
     @staticmethod
     def pack(data: npt.NDArray[np.int32]) -> bytes:
@@ -58,25 +68,25 @@ class SendStream(Stream):
         interface: AudioInterface,
         send_audio: Wave,
     ):
-        super().__init__(interface)
+        super().__init__(interface, send_audio)
 
         def callback(outdata, frames, time, status):
             if status:
                 print(status, file=sys.stderr)
-            if not send_audio.loop:
-                chunksize = min(len(send_audio) - send_audio.frame, frames)
+            if not self.send_audio.loop:
+                chunksize = min(len(self.send_audio) - self.send_audio.frame, frames)
             else:
                 chunksize = frames
 
-            output = np.zeros((frames, interface.num_sends), dtype=np.int32)
-            output[chunksize, interface.num_sends - 1] = send_audio.of_length(samples=chunksize)
+            output = np.zeros((frames, self.interface.num_sends), dtype=np.int32)
+            output[:chunksize, self.interface.num_sends - 1] = self.send_audio.next(chunksize)
             outdata[:] = self.pack(output)
 
         self.stream = sd.RawOutputStream(
-            samplerate=send_audio.samplerate,
-            blocksize=interface.blocksize,
-            device=interface.device,
-            channels=interface.num_sends,
+            samplerate=self.send_audio.samplerate,
+            blocksize=self.interface.blocksize,
+            device=self.interface.device,
+            channels=self.interface.num_sends,
             dtype="int24",
             callback=callback,
             finished_callback=self.done.set,
@@ -90,29 +100,97 @@ class SendReturnStream(Stream):
     def __init__(
         self,
         interface: AudioInterface,
-        output_level: float,
-        unit: TestToneUnit = TestToneUnit.DBFS,
+        send_audio: Wave,
     ):
-        self.output_level = output_level
-        self.unit = unit
-        self.sine_wave = SineWave(dbfs=self._get_level_dbfs())
+        super().__init__(interface, send_audio)
 
-        super().__init__(interface, self.sine_wave)
+        self.return_audio = np.zeros(
+            (len(self.send_audio) + 10 * self.interface.blocksize, self.interface.num_returns), dtype=np.int32
+        )
+        self.return_levels = np.zeros(self.interface.num_returns, dtype=np.int32)
 
-    def _get_level_dbfs(self):
-        if self.unit == self.TestToneUnit.DBFS:
-            return self.output_level
-        elif self.unit == self.TestToneUnit.DBU:
-            return self.interface.send_dbfs_to_dbu(self.output_level)
+        def callback(indata, outdata, frames, time, status):
+            if status:
+                print(status, file=sys.stderr)
+            if not self.send_audio.loop:
+                chunksize = min(len(self.send_audio) - self.send_audio.frame, frames)
+            else:
+                chunksize = frames
 
-    def increase_output_level(self):
-        self.output_level += 1
-        self.sine_wave = SineWave(self.frequency, self.samplerate, self._get_level_dbfs())
+            output = np.zeros((frames, self.interface.num_sends), dtype=np.int32)
+            output[chunksize, self.interface.num_sends - 1] = self.send_audio.next(chunksize)
+            outdata[:] = self.pack(output)
 
-    def decrease_output_level(self):
-        self.output_level -= 1
-        self.sine_wave = SineWave(self.frequency, self.samplerate, self._get_level_dbfs())
+            input = self.unpack(indata, self.interface.num_returns)
+            self.return_audio[self.send_audio.frame : self.send_audio.frame + frames] = input
+
+            levels = np.max(np.abs(input), axis=0)
+            for i in range(self.interface.num_returns):
+                if levels[i] > self.return_levels[i]:
+                    self.return_levels[i] = levels[i]
+
+            self.send_audio.frame += frames
+            if self.send_audio.frame >= len(self.send_audio):
+                raise sd.CallbackStop()
+
+        self.stream = sd.RawStream(
+            samplerate=self.send_audio.samplerate,
+            blocksize=self.interface.blocksize,
+            device=self.interface.device,
+            channels=(self.interface.num_returns, self.interface.num_sends),
+            dtype="int24",
+            callback=callback,
+            finished_callback=self.done.set,
+        )
+
+    def get_return_levels(self) -> list[float]:
+        return int24_to_dbfs(self.return_levels).tolist()
 
 
-class SendReturnStream(Stream):
-    pass
+class SineWaveStream(SendStream):
+    def __init__(
+        self,
+        interface: AudioInterface,
+        level_dbfs: float,
+    ):
+        sine_wave = SineWave(dbfs=level_dbfs)
+        super().__init__(interface, sine_wave)
+
+    def get_send_level(self) -> float:
+        return self.send_audio.get_level()
+
+    def increase_send_level(self):
+        self.send_audio.set_level(self.send_audio.dbfs + 1)
+
+    def decrease_send_level(self):
+        self.send_audio.set_level(self.send_audio.dbfs - 1)
+
+
+class SendCalibrationStream(SendStream):
+    def __init__(
+        self,
+        interface: AudioInterface,
+        level_dbfs: float,
+    ):
+        sine_wave = SineWave(dbfs=level_dbfs)
+        super().__init__(interface, sine_wave)
+
+
+class ReturnCalibrationStream(SendReturnStream):
+    def __init__(
+        self,
+        interface: AudioInterface,
+        level_dbfs: float,
+    ):
+        sine_wave = SineWave(dbfs=level_dbfs)
+        super().__init__(interface, sine_wave)
+
+
+class CaptureStream(SendReturnStream):
+    def __init__(
+        self,
+        interface: AudioInterface,
+        input_wav: wavio.Wav,
+    ):
+        send_audio = AudioWave(input_wav.data)
+        super().__init__(interface, send_audio)

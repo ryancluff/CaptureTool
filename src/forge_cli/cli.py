@@ -1,10 +1,17 @@
 from argparse import ArgumentParser
 import hashlib
+from pathlib import Path
 import json
 
 from core.db import ForgeDB
-from core.util import read_config
+from core.util import read_config, write_config
 from forge_cli.api import ForgeApi
+
+
+def create_capture_manifest(capture: dict, session: dict) -> None:
+    capture_dir = Path(ForgeDB.FORGE_DIR, "captures", capture["id"])
+    capture_dir.mkdir(exist_ok=True)
+    write_config(capture_dir, capture, "manifest")
 
 
 def cli():
@@ -79,5 +86,9 @@ def cli():
             elif resource_type == "snapshot":
                 config["capture"] = db.get_cursor("capture")
             resource = api.create(resource_type, config)
+            if resource_type == "capture":
+
+                capture_dir = create_capture_dir(resource["id"])
+                write_config(capture_dir, config, "capture")
             db.set_cursor(resource_type, resource["id"])
             print(f"created {resource_type}: {json.dumps(resource, indent=4)}")

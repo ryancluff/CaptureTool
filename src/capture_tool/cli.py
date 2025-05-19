@@ -2,6 +2,8 @@ from argparse import ArgumentParser
 import json
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy import typing as npt
+
 from pathlib import Path
 import sounddevice as sd
 import wavio
@@ -10,12 +12,12 @@ from core.db import ForgeDB
 from core.util import read_config, write_config, timestamp
 
 from capture_tool.audio import (
-    int_to_dbfs,
     vrms_to_dbu,
     calculate_latency,
     process_recordings,
 )
 from capture_tool.interface import AudioInterface
+from capture_tool.stream import SineWaveStream, SendCalibrationStream, ReturnCalibrationStream, CaptureStream
 from capture_tool.voltmeter import measure_acrms
 
 
@@ -39,19 +41,7 @@ def _print_interface(device: int) -> None:
     print("supported samplerates: " + str(supported_samplerates))
 
 
-def _create_captures_dir(path: str = "captures") -> Path:
-    captures_dir = Path(path)
-    captures_dir.mkdir(exist_ok=True)
-    return captures_dir
-
-
-def _create_capture_dir(captures_dir: Path, path: str = timestamp()) -> Path:
-    captures_dir = Path(captures_dir, path)
-    captures_dir.mkdir(exist_ok=False)
-    return captures_dir
-
-
-def _write_wav(path: Path, data: np.ndarray, samplerate: int) -> None:
+def _write_wav(path: Path, data: npt.NDArray[np.int32], samplerate: int) -> None:
     wavio.write(
         str(path),
         data,
@@ -64,11 +54,11 @@ def _calibrate_send(
     interface: AudioInterface,
     send_level_dbfs: float = -3.0,
 ) -> None:
-    if interface.send_level_dbu is None:
+    if not interface._send_calibrated:
         print("send level calibration required. verify interface send is only connect to the voltmeter.")
         input("press enter to start send level calibration...")
         print("starting send level calibration...")
-        stream = interface.get_send_calibration_stream(send_level_dbfs=send_level_dbfs)
+        stream = SendCalibrationStream(interface, level_dbfs=send_level_dbfs)
         with stream:
             send_level_dbu = vrms_to_dbu(measure_acrms())
         interface.set_send_level_dbu(send_level_dbu, send_level_dbfs)
@@ -78,7 +68,7 @@ def _calibrate_send(
     else:
         print("send level calibration not required")
         print("the following values were supplied config file, skipping calibration")
-    print(f'"_send_level_dbu ": {interface.send_level_dbu:f}')
+    print(f'"send_level_dbu ": {interface.send_level_dbu:f}')
     print("recalibrate following any settings (gain) or hardware changes")
 
 
@@ -92,17 +82,14 @@ def _calibrate_returns(
         print("starting return levels calibration...")
         for i in range(interface.num_returns):
             input(f"channel {i + 1} - press enter to continue")
-            clip = True
-            while clip:
-                stream, levels, done = interface.get_return_calibration_stream(send_level_dbfs=send_level_dbfs)
-                with stream:
-                    while not done.wait(timeout=1.0):
-                        pass
-                interface.set_return_level_dbu(
-                    interface.send_dbfs_to_dbu(send_level_dbfs),
-                    int_to_dbfs(levels[i]),
-                    i,
-                )
+            stream = ReturnCalibrationStream(interface, send_level_dbfs)
+            with stream:
+                while not stream.done.wait(timeout=1.0):
+                    pass
+        interface.set_return_levels_dbu(
+            send_level_dbfs,
+            stream.get_return_levels(),
+        )
         print("return level calibration complete")
         print("send level calibration complete")
         print("calibration value saved to config in capture directory")
@@ -117,25 +104,25 @@ def _calibrate_returns(
 def _plot_latency(
     channel: int,
     samplerate: int,
-    send_audio: np.ndarray,
-    return_audio: np.ndarray,
-    processed_return_audio: np.ndarray,
-    channel_delays: np.ndarray,
-    channel_inversions: np.ndarray,
+    send_audio: npt.NDArray[np.int32],
+    return_audio: npt.NDArray[np.int32],
+    processed_return_audio: npt.NDArray[np.int32],
+    channel_delays: list[int],
+    channel_inversions: list[bool],
 ) -> None:
     samples = samplerate * 5
     plt.figure(figsize=(16, 5))
     plt.plot(
-        send_audio[:samples] / np.max(send_audio[:samples]),
+        np.divide(send_audio[:samples], np.max(send_audio[:samples])),
         label="reamp",
     )
     plt.plot(
-        return_audio[:samples, channel] / np.max(return_audio[:samples, channel]),
+        np.divide(return_audio[:samples, channel], np.max(return_audio[:samples, channel])),
         linestyle="--",
         label="raw recording",
     )
     plt.plot(
-        processed_return_audio[:samples, channel] / np.max(processed_return_audio[:samples, channel]),
+        np.divide(processed_return_audio[:samples, channel], np.max(processed_return_audio[:samples, channel])),
         linestyle="-.",
         label="processed recording",
     )
@@ -146,34 +133,28 @@ def _plot_latency(
     plt.show(block=True)
 
 
-def _test_tone(interface: AudioInterface, unit: str, level: float) -> None:
-    if unit == "dbfs":
-        unit = AudioInterface.TestToneUnit.DBFS
+def _test_tone(interface: AudioInterface, unit_str: str, level: float) -> None:
+    if unit_str == "dbfs":
         if level is None:
             level = -3
-    elif unit == "dbu":
-        unit = AudioInterface.TestToneUnit.DBU
+    elif unit_str == "dbu":
         _calibrate_send(interface, send_level_dbfs=-3.0)
         if level is None:
-            level = 3
+            level = interface.send_dbu_to_dbfs(-3)
+        else:
+            level = -3
 
-    stream, get_output_level_dbfs, increase_output_level, decrease_output_level = interface.get_testtone_stream(
-        level, unit
-    )
+    stream = SineWaveStream(interface, level_dbfs=level)
 
     with stream:
         print("enter 1 to increase output level, 2 to decrease output level, q to quit")
         control = "0"
         while control != "q":
-            print(
-                "output level: ",
-                get_output_level_dbfs(),
-                " dbfs" if unit == AudioInterface.TestToneUnit.DBFS else "dbu",
-            )
+            print(f"output level: {stream.get_send_level()} {unit_str}")
             if control == "1":
-                increase_output_level()
+                stream.increase_send_level()
             elif control == "2":
-                decrease_output_level()
+                stream.decrease_send_level()
             elif control == "0" or control == "q":
                 pass
             else:
@@ -181,51 +162,31 @@ def _test_tone(interface: AudioInterface, unit: str, level: float) -> None:
             control = input("> ")
 
 
-def _capture(config_path: Path, no_show: bool = False) -> None:
-    config = read_config(config_path)
-    interface = AudioInterface(config)
-    captures_dir = _create_captures_dir()
-    capture_dir = _create_capture_dir(captures_dir)
-
+def _capture(interface: AudioInterface, capture_manifest: dict, capture_dir: Path, no_show: bool = False) -> None:
     # calibrate interface send level
     _calibrate_send(interface, send_level_dbfs=-3.0)
-    write_config(capture_dir, interface.get_config())
+
+    input_wav = wavio.read(capture_manifest["input_path"])
+    stream = CaptureStream(interface, input_wav)
 
     print("verify interface send and returns are connected to the device to be modeled")
-    stream, get_frame, send_audio, return_audio, peak_levels, done = interface.get_capture_stream()
-    complete = False
-    while not complete:
-        input("press enter to start capture...")
-        try:
-            with stream:
-                while not done.wait(timeout=1.0):
-                    peak_dbfs = int_to_dbfs(peak_levels)
-                    for i in range(interface.num_returns):
-                        if peak_dbfs[i] > 0:
-                            raise AudioInterface.ClipException(i + 1, peak_dbfs[i])
-                    output_str = " | ".join(f"{dbu:3.2f}" for dbu in peak_dbfs)
-                    current_seconds = get_frame() // interface.wav.rate
-                    current_seconds = f"{current_seconds // 60:02d}:{current_seconds % 60:02d}"
-                    total_seconds = len(interface.wav.data) // interface.wav.rate
-                    total_seconds = f"{total_seconds // 60:02d}:{total_seconds % 60:02d}"
-                    print(f"{current_seconds} / {total_seconds} - {output_str}          ")
-            complete = True
-        except AudioInterface.ClipException as e:
-            print(e.message)
-            print(f"decrease the return level gain on channel {e.channel} and restart capture")
-            stream, get_frame, send_audio, return_audio, peak_levels, done = interface.get_capture_stream()
-        except KeyboardInterrupt:
-            print(f"capture manually stopped at {current_seconds} / {total_seconds}")
-            complete = True
+    input("press enter to start capture...")
+    try:
+        with stream:
+            output_str = " | ".join(f"{dbu:3.2f}" for dbu in stream.get_return_levels())
+            print(f"{stream.send_audio.get_time()} / {stream.send_audio.get_duration()} - {output_str}          ")
+    except KeyboardInterrupt:
+        print(f"capture manually stopped at {stream.send_audio.get_time()} / {stream.send_audio.get_time()}")
+        raise KeyboardInterrupt
 
     channel_delays, channel_inversions = calculate_latency(
-        send_audio,
-        return_audio,
-        interface.samplerate,
+        stream.send_audio.unscaled_audio,
+        stream.return_audio,
+        stream.send_audio.samplerate,
     )
     processed_return_audio = process_recordings(
-        send_audio,
-        return_audio,
+        stream.send_audio.unscaled_audio,
+        stream.return_audio,
         channel_delays,
         channel_inversions,
     )
@@ -234,35 +195,26 @@ def _capture(config_path: Path, no_show: bool = False) -> None:
         for i in range(interface.num_returns):
             _plot_latency(
                 i,
-                interface.samplerate,
-                send_audio,
-                return_audio,
+                stream.send_audio.samplerate,
+                stream.send_audio.unscaled_audio,
+                stream.return_audio,
                 processed_return_audio,
                 channel_delays,
                 channel_inversions,
             )
 
-    # Save the raw recording to a single wav file
+    # Save the raw and processed recordings to two separate wav files
     # The number of channels in the wav file is equal to the number of return channels
     _write_wav(
         Path(capture_dir, "recording-raw.wav"),
-        return_audio,
-        interface.wav.rate,
+        stream.return_audio,
+        stream.send_audio.samplerate,
     )
-
-    # Save the processed recording data
-    # Each channel is saved to a separate mono wav file
-    for i in range(interface.num_returns):
-        channel = interface.channels["returns"][i]
-        _write_wav(
-            Path(capture_dir, f"recording-{channel}.wav"),
-            processed_return_audio[:, i],
-            interface.wav.rate,
-        )
-
-    # Calibrate interface return levels
-    _calibrate_returns(interface, send_level_dbfs=-3.0)
-    write_config(capture_dir, interface.get_config())
+    _write_wav(
+        Path(capture_dir, f"recording-processed.wav"),
+        processed_return_audio,
+        stream.send_audio.samplerate,
+    )
 
 
 def cli():
@@ -280,7 +232,10 @@ def cli():
         "--level", type=float, required=False, help="level in dbfs or dbu. defaults to -3 for dbfs and 3 for dbu"
     )
 
+    calibrate_parser = subparsers.add_parser("calibrate", help="Calibrate the interface")
+
     capture_parser = subparsers.add_parser("run", help="Run a capture")
+    capture_parser.add_argument("manifest", type=str, help="path to capture manifest or parent dir to run")
     capture_parser.add_argument("--no-show", action="store_true", help="Skip plotting latency info")
 
     args = parser.parse_args()
@@ -295,6 +250,17 @@ def cli():
     elif args.command == "testtone":
         interface = AudioInterface(interface_config)
         _test_tone(interface, args.type, args.level)
-    elif args.command == "run":
+    elif args.command == "calibrate":
         interface = AudioInterface(interface_config)
-        _capture(args.capture_config_path, no_show=args.no_show)
+        _calibrate_send(interface)
+        db.set_interface(interface.get_config())
+    elif args.command == "run":
+        manifest_path = Path(args.capture_manifest)
+        if not manifest_path.exists():
+            raise FileNotFoundError(f"capture dir {manifest_path} does not exist")
+        elif not manifest_path.is_dir():
+            manifest_path = Path(manifest_path, "manifest.json")
+        manifest = read_config(manifest_path)
+        capture_dir = manifest_path.parent
+        interface = AudioInterface(interface_config)
+        _capture(interface, manifest,  capture_dir, no_show=args.no_show)

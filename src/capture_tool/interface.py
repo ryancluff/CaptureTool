@@ -1,18 +1,4 @@
-from enum import Enum
-import sys
-import threading
-import time
-
-import numpy as np
 import sounddevice as sd
-import wavio
-
-from capture_tool.audio import (
-    db_to_scalar,
-)
-
-from capture_tool.stream import TestToneStream
-from capture_tool.wave import SineWave
 
 
 class AudioInterface:
@@ -97,7 +83,7 @@ class AudioInterface:
         return send_level_dbfs + self.send_level_dbu
 
     # Convert return level dBu to dBFS for the given channel
-    def _return_dbu_to_dbfs(
+    def return_dbu_to_dbfs(
         self,
         return_level_dbu: float,
         channel: int,
@@ -107,7 +93,7 @@ class AudioInterface:
         return return_level_dbu - self.return_levels_dbu[channel - 1]
 
     # Convert return level dBFS to dBu for the given channel
-    def _return_dbfs_to_dbu(
+    def return_dbfs_to_dbu(
         self,
         return_level_dbfs: float,
         channel: int,

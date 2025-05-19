@@ -1,5 +1,3 @@
-import math
-
 import numpy as np
 from numpy import typing as npt
 import wavio
@@ -47,8 +45,9 @@ class Wave:
                 self.frame = 0
             else:
                 raise StopIteration
+        result = self.audio[self.frame]
         self.frame += 1
-        return self.audio[self.frame]
+        return result
 
     def __len__(self):
         return len(self.audio)
@@ -65,29 +64,36 @@ class Wave:
 
     def set_level(self, dbfs: float):
         self.dbfs = dbfs
-        self.audio = self.unscaled_audio * self.db_to_scalar(dbfs)
+        self.audio = (self.unscaled_audio * self.db_to_scalar(dbfs)).astype(np.int32)
+
+    @staticmethod
+    def _format_time(seconds: float) -> str:
+        minutes = int(seconds // 60)
+        seconds = int(seconds % 60)
+        return f"{minutes:02d}:{seconds:02d}"
+
+    def get_time(self) -> str:
+        seconds = self.frame / self.samplerate
+        return self._format_time(seconds)
+
+    def get_duration(self) -> str:
+        seconds = len(self.audio) / self.samplerate
+        return self._format_time(seconds)
 
 
 class SineWave(Wave):
     def __init__(
         self,
         samplerate: int = 48000,
-        dbfs: float = -12.0,
+        dbfs: float = 0,
         frequency: float = 1000.0,
-        loop: bool = True,
     ):
-        super().__init__(samplerate, dbfs, loop)
-        self.len = int(samplerate / frequency)
-        self.lookup_table = np.array(
-            [
-                int(
-                    self.MAX_VAL_INT24
-                    * self.db_to_scalar(dbfs)
-                    * math.sin(2.0 * math.pi * frequency * (float(i % self.len) / float(samplerate)))
-                )
-                for i in range(self.len)
-            ]
-        )
+        duration = 1 / frequency
+        t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
+        phase = 2 * np.pi * frequency * t
+        w = (self.MAX_VAL_INT24 * np.sin(phase)).astype(np.int32)
+
+        super().__init__(w, samplerate, dbfs, loop=True)
 
 
 class SweepWave(Wave):
@@ -98,18 +104,13 @@ class SweepWave(Wave):
         start_freq: float = 20.0,
         end_freq: float = 20000.0,
         duration: float = 10.0,
-        samplerate: int = 48000,
-        dbfs: float = 0.0,
-        loop: bool = False,
     ):
-        super().__init__(samplerate, dbfs, loop)
-        self.len = int(samplerate * duration)
-        self.t = np.linspace(0, duration, self.len, endpoint=False)
-
+        t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
         beta = (end_freq - start_freq) / duration
-        phase = 2 * np.pi * (start_freq * self.t + 0.5 * beta * self.t * self.t)
-        w = self.MAX_VAL_INT24 * self.db_to_scalar(dbfs) * np.sin(phase)
-        self.lookup_table = w.astype(np.int32)
+        phase = 2 * np.pi * (start_freq * t + 0.5 * beta * t * t)
+        w = (self.MAX_VAL_INT24 * np.sin(phase)).astype(np.int32)
+
+        super().__init__(w, samplerate, dbfs)
 
 
 class AudioWave(Wave):
