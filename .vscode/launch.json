@@ -71,6 +71,17 @@
             ]
         },
         {
+            "name": "capture-tool calibrate",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/capture_tool",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "calibrate"
+            ]
+        },
+        {
             "name": "forge-cli list inputs",
             "type": "debugpy",
             "request": "launch",
