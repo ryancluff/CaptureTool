@@ -3,7 +3,10 @@ import sys
 import threading
 
 import numpy as np
+from numpy import typing as npt
+
 import sounddevice as sd
+import wavio
 
 from capture_tool.interface import AudioInterface
 from capture_tool.wave import Wave, SineWave
@@ -11,6 +14,9 @@ from capture_tool.wave import Wave, SineWave
 
 class Stream:
     interface: AudioInterface
+    send_audio: Wave
+
+    stream: sd._StreamBase
     done: threading.Event
 
     def __init__(self, interface: AudioInterface):
@@ -21,7 +27,7 @@ class Stream:
         self.done = threading.Event()
 
     @staticmethod
-    def pack(data: np.ndarray) -> bytes:
+    def pack(data: npt.NDArray[np.int32]) -> bytes:
         return b"".join(
             int(sample).to_bytes(
                 3,
@@ -32,7 +38,7 @@ class Stream:
         )
 
     @staticmethod
-    def unpack(data: bytes, channels: int) -> np.ndarray:
+    def unpack(data: bytes, channels: int) -> npt.NDArray[np.int32]:
         return np.array(
             [
                 int.from_bytes(
@@ -77,10 +83,9 @@ class SendStream(Stream):
         )
 
 
-class TestToneStream(SendStream):
-    class TestToneUnit(Enum):
-        DBFS = 0
-        DBU = 1
+class SendReturnStream(Stream):
+    return_audio: npt.NDArray[np.int32]
+    return_levels: npt.NDArray[np.int32]
 
     def __init__(
         self,

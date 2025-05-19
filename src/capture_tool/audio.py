@@ -2,6 +2,7 @@ import math
 from enum import Enum
 
 import numpy as np
+from numpy import typing as npt
 
 MAX_VAL_INT24 = 2 ** (24 - 1) - 1
 
@@ -21,7 +22,7 @@ def dbu_to_vrms(dbu: float) -> float:
 
 
 # Convert 24 bit audio data to dBFS
-def int_to_dbfs(max_val: np.ndarray) -> np.ndarray:
+def int24_to_dbfs(max_val: npt.NDArray[np.int32]) -> npt.NDArray[np.float32]:
     return 20 * np.log10(max_val / (MAX_VAL_INT24))
 
 
@@ -35,14 +36,14 @@ class LatencyAdjustment(Enum):
 
 
 def calculate_latency(
-    send_audio: np.ndarray,
-    return_audio: np.ndarray,
+    send_audio: npt.NDArray[np.int32],
+    return_audio: npt.NDArray[np.int32],
     samplerate: int,
     cross_correlation_seconds: int = 5,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[list[int], list[bool]]:
     num_returns = np.shape(return_audio)[1]
-    channel_delays = np.zeros(num_returns, dtype=np.int32)
-    channel_inversions = np.zeros(num_returns, dtype=np.bool)
+    channel_delays = [0 for _ in range(num_returns)]
+    channel_inversions = [False for _ in range(num_returns)]
 
     # trim return and output data for cross correlation
     reamp_short = send_audio[: samplerate * cross_correlation_seconds, 0]
@@ -63,18 +64,18 @@ def calculate_latency(
             channel_inversions[i] = True
 
         # Calculate the delay for each channel
-        channel_delays[i] = len(recording_short) - max_cc - 1 - LATENCY_OFFSET
+        channel_delays[i] = len(recording_short) - int(max_cc) - 1 - LATENCY_OFFSET
     return channel_delays, channel_inversions
 
 
 def process_recordings(
-    send_audio: np.ndarray,
-    return_audio: np.ndarray,
-    channel_delays: np.ndarray,
-    channel_inversions: np.ndarray,
+    send_audio: npt.NDArray[np.int32],
+    return_audio: npt.NDArray[np.int32],
+    channel_delays: list[int],
+    channel_inversions: list[bool],
     latency_adjustment: LatencyAdjustment = LatencyAdjustment.BASE,
     inversion_adjustment: bool = True,
-) -> np.ndarray:
+) -> npt.NDArray:
     num_returns = np.shape(return_audio)[1]
     result = np.zeros_like(return_audio)
 

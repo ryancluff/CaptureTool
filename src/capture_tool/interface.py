@@ -16,6 +16,15 @@ from capture_tool.wave import SineWave
 
 
 class AudioInterface:
+    device: int
+    blocksize: int
+    num_sends: int
+    num_returns: int
+    _send_calibrated: bool
+    _return_calibrated: bool
+    send_level_dbu: float
+    return_levels_dbu: list[float]
+
     INIT_SETTINGS = {
         "device": sd.default.device[1],
         "blocksize": 512,
@@ -35,25 +44,26 @@ class AudioInterface:
     def __init__(self, config: dict):
         self.device = config["device"]
         self.blocksize = config["blocksize"]
-        self.channels = config.get("channels", {"returns": ["channel 1"], "reamp": 1})
         self.num_sends = config["send_channel"]
         self.num_returns = config["return_channels"]
 
+        self._send_calibrated = config["send_level_dbu"] is not None
+        self._return_calibrated = config["return_levels_dbu"] is not None
+
         # calibration values
         # the level (dBu) being sent from the interface to the gear corresponding to a 1kHz sine wave with 0dBFS peak
-        self.send_level_dbu = config.get("send_level_dbu", None)
+        self.send_level_dbu = config.get("send_level_dbu", 0.0)
         # an array of levels like above that correspond to the return channels
-        self.return_levels_dbu = config.get("return_levels_dbu", None)
+        self.return_levels_dbu = config.get("return_levels_dbu", [0.0 for _ in range(self.num_returns)])
 
     def get_config(self) -> dict:
         return {
             "device": self.device,
             "blocksize": self.blocksize,
-            "channels": self.channels,
             "send_channel": self.num_sends,
             "return_channels": self.num_returns,
-            "send_level_dbu": self.send_level_dbu,
-            "return_levels_dbu": self.return_levels_dbu.tolist() if self.return_levels_dbu is not None else None,
+            "send_level_dbu": self.send_level_dbu if self._send_calibrated else None,
+            "return_levels_dbu": self.return_levels_dbu if self._return_calibrated else None,
         }
 
     def set_send_level_dbu(
@@ -61,17 +71,18 @@ class AudioInterface:
         measured_send_level_dbu: float,
         send_level_dbfs: float = 0.0,
     ):
+        self._send_calibrated = True
         self.send_level_dbu = measured_send_level_dbu - send_level_dbfs
 
-    def set_return_level_dbu(
+    def set_return_levels_dbu(
         self,
-        send_level_dbu: float,
-        return_level_dbfs: float,
-        channel: int,
+        send_level_dbfs: float,
+        return_levels_dbfs: list[float],
     ):
-        if self.return_levels_dbu is None:
-            self.return_levels_dbu = np.zeros(self.num_returns, dtype=np.float32)
-        self.return_levels_dbu[channel - 1] = send_level_dbu - return_level_dbfs
+        self._return_calibrated = True
+        send_level_dbu = self.send_dbfs_to_dbu(send_level_dbfs)
+        for channel in range(self.num_returns):
+            self.return_levels_dbu[channel] = send_level_dbu - return_levels_dbfs[channel]
 
     # Convert send level dBu to dBFS
     def send_dbu_to_dbfs(self, send_level_dbu: float) -> float:

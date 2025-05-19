@@ -1,30 +1,42 @@
 import math
 
 import numpy as np
+from numpy import typing as npt
+import wavio
 
 
 class Wave:
-    MAX_VAL_INT24 = 2 ** (24 - 1) - 1
+    MAX_VAL_INT24: int = 2 ** (24 - 1) - 1
 
-    @classmethod
-    def db_to_scalar(cls, db: float) -> float:
+    frame: int
+    samplerate: int
+    dbfs: float
+    loop: bool
+    unscaled_audio: npt.NDArray[np.int32]
+    audio: npt.NDArray[np.int32]
+
+    @staticmethod
+    def db_to_scalar(db: float) -> float:
         return 10 ** (db / 20.0)
 
-    # Convert 24 bit audio data to dBFS
-    @classmethod
-    def int_to_dbfs(cls, max_val: np.ndarray) -> np.ndarray:
-        return 20 * np.log10(max_val / (cls.MAX_VAL_INT24))
-
-    def __init__(self, audio: np.ndarray, samplerate: int, dbfs: float, loop: bool):
+    def __init__(
+        self,
+        audio_data: npt.NDArray[np.int32],
+        samplerate: int = 48000,
+        dbfs: float = 0.0,
+        loop: bool = False,
+    ):
         if type(self) is Wave:
             raise Exception("Wave is an abstract class and cannot be instantiated directly")
 
         self.frame = 0
+
         self.samplerate = samplerate
         self.dbfs = dbfs
         self.loop = loop
-        self.unscaled_audio = audio
-        self.audio = self.unscaled_audio * self.db_to_scalar(dbfs)
+        self.unscaled_audio = audio_data
+
+        self.audio = (self.unscaled_audio * self.db_to_scalar(dbfs)).astype(np.int32)
 
     def __iter__(self):
         return self
@@ -44,10 +56,12 @@ class Wave:
     def reset(self):
         self.frame = 0
 
-    def of_length(self, seconds: float = 2, samples: int | None = None) -> np.ndarray:
-        if samples is not None:
-            return np.array([next(self) for _ in range(samples)])
-        return np.array([next(self) for _ in range(int(seconds * self.samplerate))])
+    def next(self, samples: int) -> npt.NDArray[np.int32]:
+        iterable = (next(self) for _ in range(samples))
+        return np.fromiter(iterable, dtype=np.int32)
+
+    def get_level(self) -> float:
+        return self.dbfs
 
     def set_level(self, dbfs: float):
         self.dbfs = dbfs
@@ -79,6 +93,8 @@ class SineWave(Wave):
 class SweepWave(Wave):
     def __init__(
         self,
+        samplerate: int = 48000,
+        dbfs: float = 0.0,
         start_freq: float = 20.0,
         end_freq: float = 20000.0,
         duration: float = 10.0,
@@ -99,11 +115,7 @@ class SweepWave(Wave):
 class AudioWave(Wave):
     def __init__(
         self,
-        audio: np.array,
-        samplerate: int = 48000,
+        wav: wavio.Wav,
         dbfs: float = 0.0,
-        loop: bool = False,
     ):
-        super().__init__(samplerate, dbfs, loop)
-        self.len = len(audio)
-        self.lookup_table = self.db_to_scalar(dbfs) * audio
+        super().__init__(wav.data, wav.rate, dbfs)
