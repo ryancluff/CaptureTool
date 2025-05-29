@@ -203,8 +203,7 @@
             "justMyCode": false,
             "args": [
                 "get",
-                "session",
-                "TODO"
+                "session"
             ]
         },
         {
@@ -216,8 +215,7 @@
             "justMyCode": false,
             "args": [
                 "get",
-                "capture",
-                "TODO"
+                "capture"
             ]
         },
         {
