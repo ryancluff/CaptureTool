@@ -9,7 +9,7 @@ import sounddevice as sd
 import wavio
 
 from core.db import ForgeDB
-from core.util import read_config, write_config, timestamp
+from core.util import read_config
 
 from capture_tool.audio import (
     vrms_to_dbu,
