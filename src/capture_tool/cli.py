@@ -162,12 +162,14 @@ def _test_tone(interface: AudioInterface, unit_str: str, level: float) -> None:
             control = input("> ")
 
 
-def _capture(interface: AudioInterface, capture_manifest: dict, capture_dir: Path, no_show: bool = False) -> None:
-    # calibrate interface send level
-    _calibrate_send(interface, send_level_dbfs=-3.0)
-
-    input_wav = wavio.read(capture_manifest["input_path"])
-    stream = CaptureStream(interface, input_wav)
+def _capture(
+    interface: AudioInterface,
+    manifest: dict,
+    input_wav: wavio.Wav,
+    capture_dir: Path,
+    no_show: bool = False,
+) -> npt.NDArray[np.int32]:
+    stream = CaptureStream(interface, input_wav, manifest["level_dbu"])
 
     print("verify interface send and returns are connected to the device to be modeled")
     input("press enter to start capture...")
@@ -216,6 +218,8 @@ def _capture(interface: AudioInterface, capture_manifest: dict, capture_dir: Pat
         stream.send_audio.samplerate,
     )
 
+    return stream.return_audio
+
 
 def cli():
     parser = ArgumentParser(description="Capture tool")
@@ -255,12 +259,20 @@ def cli():
         _calibrate_send(interface)
         db.set_interface(interface.get_config())
     elif args.command == "run":
+        interface = AudioInterface(interface_config)
+
         manifest_path = Path(args.capture_manifest)
         if not manifest_path.exists():
             raise FileNotFoundError(f"capture dir {manifest_path} does not exist")
         elif not manifest_path.is_dir():
             manifest_path = Path(manifest_path, "manifest.json")
+        output_dir = manifest_path.parent
+
         manifest = read_config(manifest_path)
-        capture_dir = manifest_path.parent
-        interface = AudioInterface(interface_config)
-        _capture(interface, manifest,  capture_dir, no_show=args.no_show)
+        input_wav = wavio.read(Path(output_dir.parent, "inputs", manifest["input_id"]))
+        return_audio = _capture(interface, manifest, input_wav, output_dir, no_show=args.no_show)
+        _write_wav(
+            Path(output_dir, "recording-raw.wav"),
+            return_audio,
+            input_wav.rate,
+        )
