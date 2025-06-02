@@ -9,9 +9,25 @@ from forge_cli.api import ForgeApi
 
 
 def create_capture_manifest(capture: dict, session: dict) -> None:
-    capture_dir = Path(ForgeDB.FORGE_DIR, "captures", capture["id"])
+    capture_dir = Path(ForgeDB.FORGE_DIR, "captures", str(capture["id"]))
     capture_dir.mkdir(exist_ok=True)
-    write_config(capture_dir, capture, "manifest")
+
+    manifest = dict()
+    manifest["capture_id"] = capture["id"]
+    manifest["session_id"] = session["id"]
+    manifest["input_id"] = capture["input"]
+
+    manifest["parameters"] = dict()
+    for i in range(len(session["parameter_labels"])):
+        manifest["parameters"][session["parameter_labels"][i]] = capture["parameters"][i]
+    manifest["switches"] = dict()
+    for i in range(len(session["switch_labels"])):
+        manifest["switches"][session["switch_labels"][i]] = capture["switches"][i]
+
+    manifest["channels"] = session["channels"]
+    manifest["level_dbu"] = capture["level_dbu"]
+
+    write_config(capture_dir, manifest, "manifest")
 
 
 def cli():
