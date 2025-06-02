@@ -32,7 +32,7 @@ def create_capture_manifest(capture: dict, session: dict) -> None:
 
 def cli():
     parser = ArgumentParser(description="forge cli")
-    parser.add_argument("--api", type=str, default="http://localhost:8000")
+    parser.add_argument("--api", type=str, required=False)
     parser.add_argument("--overwrite", action="store_true", help="Overwrite the db if it exists")
 
     subparsers = parser.add_subparsers(dest="command")
