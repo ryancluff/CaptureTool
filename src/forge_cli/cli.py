@@ -102,9 +102,9 @@ def cli():
             elif resource_type == "snapshot":
                 config["capture"] = db.get_cursor("capture")
             resource = api.create(resource_type, config)
-            if resource_type == "capture":
-
-                capture_dir = create_capture_dir(resource["id"])
-                write_config(capture_dir, config, "capture")
             db.set_cursor(resource_type, resource["id"])
             print(f"created {resource_type}: {json.dumps(resource, indent=4)}")
+            if resource_type == "capture":
+                capture = resource
+                session = api.get("session", capture["session"])
+                create_capture_manifest(capture, session)
