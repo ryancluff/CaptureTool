@@ -69,7 +69,7 @@ class ForgeApi:
         method = "PATCH"
         url = f"{self.api_str}/{resource.type}/{resource_id}/"
         response = requests.request(method, url, headers=self.DEFAUT_HEADERS, data=json.dumps(config))
-        if response.status_code != 201:
+        if response.status_code != 200:
             raise self.StatusException(method, url, response.status_code, response.text)
         result: dict = response.json()
         return result
