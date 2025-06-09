@@ -1,6 +1,5 @@
 import numpy as np
 from numpy import typing as npt
-import wavio
 
 
 class Wave:
@@ -21,8 +20,8 @@ class Wave:
     def __init__(
         self,
         audio_data: npt.NDArray[np.int32],
-        samplerate: int = 48000,
-        dbfs: float = 0.0,
+        samplerate: int,
+        level_dbfs: float,
         loop: bool = False,
     ):
         if type(self) is Wave:
@@ -31,11 +30,11 @@ class Wave:
         self.frame = 0
 
         self.samplerate = samplerate
-        self.dbfs = dbfs
+        self.level_dbfs = level_dbfs
         self.loop = loop
         self.unscaled_audio = audio_data
 
-        self.audio = (self.unscaled_audio * self.db_to_scalar(dbfs)).astype(np.int32)
+        self.audio = (self.unscaled_audio * self.db_to_scalar(level_dbfs)).astype(np.int32)
 
     def __iter__(self):
         return self
@@ -61,10 +60,10 @@ class Wave:
         return np.fromiter(iterable, dtype=np.int32)
 
     def get_level(self) -> float:
-        return self.dbfs
+        return self.level_dbfs
 
     def set_level(self, dbfs: float):
-        self.dbfs = dbfs
+        self.level_dbfs = dbfs
         self.audio = (self.unscaled_audio * self.db_to_scalar(dbfs)).astype(np.int32)
 
     @staticmethod
@@ -85,39 +84,40 @@ class Wave:
 class SineWave(Wave):
     def __init__(
         self,
-        samplerate: int = 48000,
-        dbfs: float = 0,
-        frequency: float = 1000.0,
+        frequency: float,
+        samplerate: int,
+        level_dbfs: float,
     ):
         duration = 1 / frequency
         t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
         phase = 2 * np.pi * frequency * t
         w = (self.MAX_VAL_INT24 * np.sin(phase)).astype(np.int32)
 
-        super().__init__(w, samplerate, dbfs, loop=True)
+        super().__init__(w, samplerate, level_dbfs, loop=True)
 
 
 class SweepWave(Wave):
     def __init__(
         self,
-        samplerate: int = 48000,
-        dbfs: float = 0.0,
-        start_freq: float = 20.0,
-        end_freq: float = 20000.0,
-        duration: float = 10.0,
+        freq_start: float,
+        freq_end: float,
+        duration: float,
+        samplerate: int,
+        level_dbfs: float,
     ):
         t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
-        beta = (end_freq - start_freq) / duration
-        phase = 2 * np.pi * (start_freq * t + 0.5 * beta * t * t)
+        beta = (freq_end - freq_start) / duration
+        phase = 2 * np.pi * (freq_start * t + 0.5 * beta * t * t)
         w = (self.MAX_VAL_INT24 * np.sin(phase)).astype(np.int32)
 
-        super().__init__(w, samplerate, dbfs)
+        super().__init__(w, samplerate, level_dbfs)
 
 
 class AudioWave(Wave):
     def __init__(
         self,
-        wav: wavio.Wav,
-        dbfs: float = 0.0,
+        audio_data: npt.NDArray[np.int32],
+        samplerate: int,
+        level_dbfs: float,
     ):
-        super().__init__(wav.data, wav.rate, dbfs)
+        super().__init__(audio_data, samplerate, level_dbfs)
