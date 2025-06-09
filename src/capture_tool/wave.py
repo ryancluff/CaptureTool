@@ -7,11 +7,12 @@ class Wave:
     MAX_VAL_INT24: int = 2 ** (24 - 1) - 1
 
     frame: int
-    samplerate: int
-    dbfs: float
-    loop: bool
     unscaled_audio: npt.NDArray[np.int32]
     audio: npt.NDArray[np.int32]
+
+    samplerate: int
+    level_dbfs: float
+    loop: bool
 
     @staticmethod
     def db_to_scalar(db: float) -> float:
