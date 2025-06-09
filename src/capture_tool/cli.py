@@ -8,13 +8,7 @@ import sounddevice as sd
 import wavio
 
 from core.db import ForgeDB
-from core.util import read_config
-
-from capture_tool.audio import (
-    vrms_to_dbu,
-    calculate_latency,
-    process_recordings,
-)
+from capture_tool.audio import vrms_to_dbu
 from capture_tool.interface import AudioInterface
 from capture_tool.manifest import CaptureManifest
 from capture_tool.stream import SineWaveStream, SineSweepStream, CaptureStream
@@ -89,78 +83,7 @@ def _calibrate_returns(
     print("recalibrate following any settings (gain) or hardware changes")
 
 
-def _plot_latency(
-    channel: int,
-    samplerate: int,
-    send_audio: npt.NDArray[np.int32],
-    return_audio: npt.NDArray[np.int32],
-    processed_return_audio: npt.NDArray[np.int32],
-    channel_delays: list[int],
-    channel_inversions: list[bool],
-) -> None:
-    samples = samplerate * 5
-    plt.figure(figsize=(16, 5))
-    plt.plot(
-        np.divide(send_audio[:samples], np.max(send_audio[:samples])),
-        label="reamp",
-    )
-    plt.plot(
-        np.divide(return_audio[:samples, channel], np.max(return_audio[:samples, channel])),
-        linestyle="--",
-        label="raw recording",
-    )
-    plt.plot(
-        np.divide(processed_return_audio[:samples, channel], np.max(processed_return_audio[:samples, channel])),
-        linestyle="-.",
-        label="processed recording",
-    )
-    plt.title(
-        f"channel={channel} | base delay={channel_delays[0]} | channel_delay={channel_delays[channel]} | invert={channel_inversions[channel]}"
-    )
-    plt.legend()
-    plt.show(block=True)
-
-
-# def _process():
-#     channel_delays, channel_inversions = calculate_latency(
-#         stream.send_audio.unscaled_audio,
-#         stream.return_audio,
-#         stream.send_audio.samplerate,
-#     )
-#     processed_return_audio = process_recordings(
-#         stream.send_audio.unscaled_audio,
-#         stream.return_audio,
-#         channel_delays,
-#         channel_inversions,
-#     )
-
-#     if not no_show:
-#         for i in range(interface.num_returns):
-#             _plot_latency(
-#                 i,
-#                 stream.send_audio.samplerate,
-#                 stream.send_audio.unscaled_audio,
-#                 stream.return_audio,
-#                 processed_return_audio,
-#                 channel_delays,
-#                 channel_inversions,
-#             )
-
-#     # Save the raw and processed recordings to two separate wav files
-#     # The number of channels in the wav file is equal to the number of return channels
-#     _write_wav(
-#         Path(capture_dir, "recording-raw.wav"),
-#         stream.return_audio,
-#         stream.send_audio.samplerate,
-#     )
-#     _write_wav(
-#         Path(capture_dir, f"recording-processed.wav"),
-#         processed_return_audio,
-#         stream.send_audio.samplerate,
-#     )
-
-
-def cli():
+def setup_parser() -> Namespace:
     parser = ArgumentParser(description="Capture tool")
     subparsers = parser.add_subparsers(dest="command")
 
@@ -259,7 +182,17 @@ def cli():
         help="Skip plotting latency info",
     )
 
-    args = parser.parse_args()
+    process_parser = subparsers.add_parser("process", help="Process a capture")
+    process_parser.add_argument(
+        "manifest",
+        type=str,
+        help="path to capture manifest or parent dir to run",
+    )
+    return parser.parse_args()
+
+
+def cli():
+    args = setup_parser()
 
     db = ForgeDB()
     interface_config = db.get_interface()
