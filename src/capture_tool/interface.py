@@ -6,8 +6,8 @@ class AudioInterface:
     blocksize: int
     num_sends: int
     num_returns: int
-    _send_calibrated: bool
-    _return_calibrated: bool
+    send_calibrated: bool
+    return_calibrated: bool
     send_level_dbu: float
     return_levels_dbu: list[float]
 
@@ -33,8 +33,8 @@ class AudioInterface:
         self.num_sends = config["send_channel"]
         self.num_returns = config["return_channels"]
 
-        self._send_calibrated = config["send_level_dbu"] is not None
-        self._return_calibrated = config["return_levels_dbu"] is not None
+        self.send_calibrated = config["send_level_dbu"] is not None
+        self.return_calibrated = config["return_levels_dbu"] is not None
 
         # calibration values
         # the level (dBu) being sent from the interface to the gear corresponding to a 1kHz sine wave with 0dBFS peak
@@ -48,27 +48,31 @@ class AudioInterface:
             "blocksize": self.blocksize,
             "send_channel": self.num_sends,
             "return_channels": self.num_returns,
-            "send_level_dbu": self.send_level_dbu if self._send_calibrated else None,
-            "return_levels_dbu": self.return_levels_dbu if self._return_calibrated else None,
+            "send_level_dbu": self.send_level_dbu if self.send_calibrated else None,
+            "return_levels_dbu": self.return_levels_dbu if self.return_calibrated else None,
         }
+
+    def set_send_calibrated(self, calibrated: bool = True):
+        self.send_calibrated = calibrated
+
+    def set_return_calibrated(self, calibrated: bool = True):
+        self.return_calibrated = calibrated
 
     def set_send_level_dbu(
         self,
         measured_send_level_dbu: float,
         send_level_dbfs: float = 0.0,
     ):
-        self._send_calibrated = True
         self.send_level_dbu = measured_send_level_dbu - send_level_dbfs
 
-    def set_return_levels_dbu(
+    def set_return_level_dbu(
         self,
         send_level_dbfs: float,
-        return_levels_dbfs: list[float],
+        return_level_dbfs: float,
+        channel: int,
     ):
-        self._return_calibrated = True
         send_level_dbu = self.send_dbfs_to_dbu(send_level_dbfs)
-        for channel in range(self.num_returns):
-            self.return_levels_dbu[channel] = send_level_dbu - return_levels_dbfs[channel]
+        self.return_levels_dbu[channel] = send_level_dbu - return_level_dbfs
 
     # Convert send level dBu to dBFS
     def send_dbu_to_dbfs(self, send_level_dbu: float) -> float:
