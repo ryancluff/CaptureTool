@@ -5,11 +5,10 @@ import numpy as np
 from numpy import typing as npt
 
 import sounddevice as sd
-import wavio
 
 from capture_tool.audio import int24_to_dbfs
 from capture_tool.interface import AudioInterface
-from capture_tool.wave import Wave, SineWave, AudioWave
+from capture_tool.wave import Wave, SineWave, SweepWave, AudioWave
 
 
 class Stream:
@@ -60,6 +59,15 @@ class Stream:
             ],
             dtype=np.int32,
         ).reshape((-1, channels))
+
+    def get_send_level(self) -> float:
+        return self.send_audio.get_level()
+
+    def set_send_level(self, level_dbfs: float):
+        self.send_audio.set_level(level_dbfs)
+
+    def adjust_send_level(self, adjustment_level_dbfs: float):
+        self.send_audio.set_level(self.send_audio.level_dbfs + adjustment_level_dbfs)
 
 
 class SendStream(Stream):
@@ -151,46 +159,35 @@ class SineWaveStream(SendStream):
     def __init__(
         self,
         interface: AudioInterface,
+        frequency: int,
+        samplerate: int,
         level_dbfs: float,
     ):
-        sine_wave = SineWave(dbfs=level_dbfs)
-        super().__init__(interface, sine_wave)
-
-    def get_send_level(self) -> float:
-        return self.send_audio.get_level()
-
-    def increase_send_level(self):
-        self.send_audio.set_level(self.send_audio.dbfs + 1)
-
-    def decrease_send_level(self):
-        self.send_audio.set_level(self.send_audio.dbfs - 1)
+        audio = SineWave(frequency, samplerate, level_dbfs)
+        super().__init__(interface, audio)
 
 
-class SendCalibrationStream(SendStream):
+class SineSweepStream(SendReturnStream):
     def __init__(
         self,
         interface: AudioInterface,
+        freq_start: float,
+        freq_end: float,
+        duration: float,
+        samplerate: int,
         level_dbfs: float,
     ):
-        sine_wave = SineWave(dbfs=level_dbfs)
-        super().__init__(interface, sine_wave)
-
-
-class ReturnCalibrationStream(SendReturnStream):
-    def __init__(
-        self,
-        interface: AudioInterface,
-        level_dbfs: float,
-    ):
-        sine_wave = SineWave(dbfs=level_dbfs)
-        super().__init__(interface, sine_wave)
+        audio = SweepWave(freq_start, freq_end, duration, samplerate, level_dbfs)
+        super().__init__(interface, audio)
 
 
 class CaptureStream(SendReturnStream):
     def __init__(
         self,
         interface: AudioInterface,
-        input_wav: wavio.Wav,
+        input_data: npt.NDArray[np.int32],
+        samplerate: int,
+        level_dbfs: float,
     ):
-        send_audio = AudioWave(input_wav.data)
-        super().__init__(interface, send_audio)
+        audio = AudioWave(input_data, samplerate, level_dbfs)
+        super().__init__(interface, audio)
