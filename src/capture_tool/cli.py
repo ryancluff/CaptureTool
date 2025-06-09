@@ -198,19 +198,23 @@ def cli():
     interface_config = db.get_interface()
     if args.command == "interfaces":
         _print_interfaces()
+
     elif args.command == "interface":
         device = args.interface if args.interface else interface_config["device"]
         _print_interface(device)
+
     else:
         interface = AudioInterface(interface_config)
 
         if args.command == "calibrate_send":
             _calibrate_send(interface, args.freq, args.samplerate, args.level)
             db.set_interface(interface.get_config())
+
         elif args.command == "calibrate_return":
             _calibrate_returns(interface, args.freq_start, args.freq_end, args.samplerate, args.level)
             db.set_interface(interface.get_config())
-        elif args.command == "tone":
+
+        elif args.command == "test_tone":
             if args.level_dbu is not None:
                 level_dbfs = interface.send_dbu_to_dbfs(args.level_dbu)
             else:
@@ -233,6 +237,7 @@ def cli():
                         except:
                             print("invalid input")
                     control = input("> ")
+
         elif args.command == "run":
             manifest_path = Path(args.manifest)
             manifest = CaptureManifest(manifest_path)
