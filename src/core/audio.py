@@ -1,7 +1,30 @@
+import math
 from enum import Enum
 
 import numpy as np
-import numpy.typing as npt
+from numpy import typing as npt
+
+MAX_VAL_INT24 = 2 ** (24 - 1) - 1
+
+
+def db_to_scalar(db: float) -> float:
+    return 10 ** (db / 20.0)
+
+
+# Convert RMS voltage to dBu
+def vrms_to_dbu(vrms: float) -> float:
+    return 20 * math.log10(vrms / 0.7746)
+
+
+# Convert dBu to RMS voltage
+def dbu_to_vrms(dbu: float) -> float:
+    return 0.7746 * 10 ** (dbu / 20)
+
+
+# Convert 24 bit audio data to dBFS
+def int24_to_dbfs(max_val: npt.NDArray[np.int32]) -> npt.NDArray[np.float32]:
+    return 20 * np.log10(max_val / (MAX_VAL_INT24))
+
 
 LATENCY_OFFSET = 0
 
