@@ -1,10 +1,9 @@
 from argparse import ArgumentParser
-import json
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import typing as npt
-
-from pathlib import Path
 import sounddevice as sd
 import wavio
 
