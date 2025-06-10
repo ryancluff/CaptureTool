@@ -8,7 +8,7 @@ import sounddevice as sd
 import wavio
 
 from core.db import ForgeDB
-from capture_tool.audio import vrms_to_dbu
+from core.audio import vrms_to_dbu
 from capture_tool.interface import AudioInterface
 from capture_tool.manifest import CaptureManifest
 from capture_tool.stream import SineWaveStream, SineSweepStream, CaptureStream
