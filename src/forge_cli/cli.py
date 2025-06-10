@@ -97,7 +97,7 @@ def cli():
             resource = api.update(resource_type, resource_id, config)
             resource = api.upload(resource_type, resource_id, args.file_path)
             print(f"uploaded {resource_type}: {json.dumps(resource, indent=4)}")
-            
+
     else:
         if args.command == "list":
             resources = api.list(resource_type)
