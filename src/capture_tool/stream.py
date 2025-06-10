@@ -6,7 +6,7 @@ from numpy import typing as npt
 
 import sounddevice as sd
 
-from capture_tool.audio import int24_to_dbfs
+from core.audio import int24_to_dbfs
 from capture_tool.interface import AudioInterface
 from capture_tool.wave import Wave, SineWave, SweepWave, AudioWave
 
