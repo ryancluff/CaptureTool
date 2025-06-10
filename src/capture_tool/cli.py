@@ -83,7 +83,7 @@ def _calibrate_returns(
     print("recalibrate following any settings (gain) or hardware changes")
 
 
-def setup_parser() -> Namespace:
+def _setup_parser() -> ArgumentParser:
     parser = ArgumentParser(description="Capture tool")
     subparsers = parser.add_subparsers(dest="command")
 
@@ -188,11 +188,12 @@ def setup_parser() -> Namespace:
         type=str,
         help="path to capture manifest or parent dir to run",
     )
-    return parser.parse_args()
+    return parser
 
 
 def cli():
-    args = setup_parser()
+    parser = _setup_parser()
+    args = parser.parse_args()
 
     db = ForgeDB()
     interface_config = db.get_interface()
