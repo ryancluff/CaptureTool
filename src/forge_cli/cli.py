@@ -8,7 +8,7 @@ from core.util import read_config, write_config
 from forge_cli.api import ForgeApi
 
 
-def create_capture_manifest(capture: dict, session: dict) -> None:
+def _create_manifest(capture: dict, session: dict) -> None:
     capture_dir = Path(ForgeDB.FORGE_DIR, "captures", str(capture["id"]))
     capture_dir.mkdir(exist_ok=True)
 
@@ -30,7 +30,7 @@ def create_capture_manifest(capture: dict, session: dict) -> None:
     write_config(capture_dir, manifest, "manifest")
 
 
-def cli():
+def _setup_parser() -> ArgumentParser:
     parser = ArgumentParser(description="forge cli")
     parser.add_argument("--api", type=str, required=False)
     parser.add_argument("--overwrite", action="store_true", help="Overwrite the db if it exists")
@@ -61,6 +61,11 @@ def cli():
     download_parser.add_argument("resource_type", type=str, choices=ForgeApi.File.TYPES, help="resource type")
     download_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="resource id (or name)")
 
+    return parser
+
+
+def cli():
+    parser = _setup_parser()
     args = parser.parse_args()
 
     db = ForgeDB(overwrite=args.overwrite)
@@ -78,9 +83,11 @@ def cli():
             resource = api.get(resource_type, resource_id)
             db.set_cursor(resource_type, resource_id)
             print(f"{resource_type}: {json.dumps(resource, indent=4)}")
+
         elif args.command == "delete":
             resource = api.delete(resource_type, resource_id)
             print(f"deleted {resource_type}: {json.dumps(resource, indent=4)}")
+
         elif args.command == "upload":
             with open(args.file_path, "rb") as fp:
                 file_hash = hashlib.file_digest(fp, "sha256").hexdigest()
@@ -90,10 +97,12 @@ def cli():
             resource = api.update(resource_type, resource_id, config)
             resource = api.upload(resource_type, resource_id, args.file_path)
             print(f"uploaded {resource_type}: {json.dumps(resource, indent=4)}")
+            
     else:
         if args.command == "list":
             resources = api.list(resource_type)
             print(f"{resource_type}: {json.dumps(resources, indent=4)}")
+
         elif args.command == "create":
             config = read_config(args.config_path)
             if resource_type == "capture":
@@ -107,4 +116,4 @@ def cli():
             if resource_type == "capture":
                 capture = resource
                 session = api.get("session", capture["session"])
-                create_capture_manifest(capture, session)
+                _create_manifest(capture, session)
