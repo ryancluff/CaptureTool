@@ -33,33 +33,98 @@ def _create_manifest(capture: dict, session: dict) -> None:
 def _setup_parser() -> ArgumentParser:
     parser = ArgumentParser(description="forge cli")
     parser.add_argument("--api", type=str, required=False)
-    parser.add_argument("--overwrite", action="store_true", help="Overwrite the db if it exists")
-
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Overwrite the db if it exists",
+    )
     subparsers = parser.add_subparsers(dest="command")
 
     list_parser = subparsers.add_parser("list", help="list forge resources")
-    list_parser.add_argument("resource_type", type=str, choices=ForgeApi.Resource.TYPES_PLURAL, help="resource type")
+    list_parser.add_argument(
+        "resource_type",
+        type=str,
+        choices=ForgeApi.Resource.TYPES_PLURAL,
+        help="resource type",
+    )
 
     create_parser = subparsers.add_parser("create", help="create a new forge resource")
-    create_parser.add_argument("resource_type", type=str, choices=ForgeApi.Resource.TYPES, help="resource type")
-    create_parser.add_argument("config_path", type=str, help="path to config file")
+    create_parser.add_argument(
+        "resource_type",
+        type=str,
+        choices=ForgeApi.Resource.TYPES,
+        help="resource type",
+    )
+    create_parser.add_argument(
+        "config_path",
+        type=str,
+        help="path to config file",
+    )
 
     get_parser = subparsers.add_parser("get", help="get a forge resource")
-    get_parser.add_argument("resource_type", type=str, choices=ForgeApi.Resource.TYPES, help="resource type")
-    get_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="resource id (or name)")
+    get_parser.add_argument(
+        "resource_type",
+        type=str,
+        choices=ForgeApi.Resource.TYPES,
+        help="resource type",
+    )
+    get_parser.add_argument(
+        "resource_id",
+        type=str,
+        nargs="?",
+        default=None,
+        help="resource id (or name)",
+    )
 
     delete_parser = subparsers.add_parser("delete", help="delete a forge resource")
-    delete_parser.add_argument("resource_type", type=str, choices=ForgeApi.Resource.TYPES, help="resource type")
-    delete_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="resource id (or name)")
+    delete_parser.add_argument(
+        "resource_type",
+        type=str,
+        choices=ForgeApi.Resource.TYPES,
+        help="resource type",
+    )
+    delete_parser.add_argument(
+        "resource_id",
+        type=str,
+        nargs="?",
+        default=None,
+        help="resource id (or name)",
+    )
 
     upload_parser = subparsers.add_parser("upload", help="upload a file")
-    upload_parser.add_argument("resource_type", type=str, choices=ForgeApi.File.TYPES, help="resource type")
-    upload_parser.add_argument("file_path", type=str, help="path to file")
-    upload_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="resource id (or name)")
+    upload_parser.add_argument(
+        "resource_type",
+        type=str,
+        choices=ForgeApi.File.TYPES,
+        help="resource type",
+    )
+    upload_parser.add_argument(
+        "file_path",
+        type=str,
+        help="path to file",
+    )
+    upload_parser.add_argument(
+        "resource_id",
+        type=str,
+        nargs="?",
+        default=None,
+        help="resource id (or name)",
+    )
 
     download_parser = subparsers.add_parser("download", help="download a file")
-    download_parser.add_argument("resource_type", type=str, choices=ForgeApi.File.TYPES, help="resource type")
-    download_parser.add_argument("resource_id", type=str, nargs="?", default=None, help="resource id (or name)")
+    download_parser.add_argument(
+        "resource_type",
+        type=str,
+        choices=ForgeApi.File.TYPES,
+        help="resource type",
+    )
+    download_parser.add_argument(
+        "resource_id",
+        type=str,
+        nargs="?",
+        default=None,
+        help="resource id (or name)",
+    )
 
     return parser
 
