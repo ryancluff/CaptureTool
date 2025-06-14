@@ -8,7 +8,7 @@ class ForgeApi:
     }
 
     class Resource:
-        TYPES = ["input", "session", "capture", "snapshot"]
+        TYPES = ["input", "session", "capture", "file", "snapshot"]
         TYPES_PLURAL = [RESOURCE + "s" for RESOURCE in TYPES]
 
         def __init__(self, resource_type: str):
@@ -19,7 +19,7 @@ class ForgeApi:
             self.type = resource_type + "s" if resource_type in self.TYPES else resource_type
 
     class File:
-        TYPES = ["input", "capture"]
+        TYPES = ["input", "file"]
 
     class StatusException(Exception):
         def __init__(self, method: str, url: str, status_code: int, text: str):
