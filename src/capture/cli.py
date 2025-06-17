@@ -6,7 +6,7 @@ import wavio
 from core.db import ForgeDB
 from core.interface import AudioInterface
 from core.stream import SineWaveStream, CaptureStream
-from capture_tool.manifest import CaptureManifest
+from capture.manifest import CaptureManifest
 
 
 DEFAULT_FREQ = 1000  # Hz
@@ -59,7 +59,7 @@ def _setup_parser() -> ArgumentParser:
     return parser
 
 
-def cli():
+def main():
     parser = _setup_parser()
     args = parser.parse_args()
     command: str = args.command

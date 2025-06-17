@@ -129,7 +129,7 @@ def _setup_parser() -> ArgumentParser:
     return parser
 
 
-def cli():
+def main():
     parser = _setup_parser()
     args = parser.parse_args()
 

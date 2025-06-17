@@ -26,16 +26,16 @@ def _setup_parser() -> ArgumentParser:
     return parser
 
 
-def cli():
+def main():
     parser = _setup_parser()
     args = parser.parse_args()
 
     db = ForgeDB()
     interface_config = db.get_interface()
-    if args.command == "interfaces":
+    if args.command == "list":
         print(sd.query_devices())
 
-    elif args.command == "interface":
+    elif args.command == "inspect":
         device = args.interface if args.interface else interface_config["device"]
 
         interface = sd.query_devices(device)

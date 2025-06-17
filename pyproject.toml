@@ -20,5 +20,7 @@ description = "cli for recording amp captures and interacting with the forge api
 readme = "README.md"
 
 [project.scripts]
-forge-cli = "forge_cli.cli:cli"
-capture-tool = "capture_tool.cli:cli"
+forge-calibration = "calibration.cli:main"
+forge-capture = "capture.cli:main"
+forge-interface = "interface.cli:main"
+forge-remote = "forge_cli.cli:main"
