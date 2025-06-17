@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from forge_cli.api import ForgeApi
-from capture_tool.interface import AudioInterface
+from core.interface import AudioInterface
 
 
 class ForgeDB:

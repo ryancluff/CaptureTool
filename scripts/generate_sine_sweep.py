@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import wavio
 
-from capture_tool.wave import SweepWave
+from core.wave import SweepWave
 
 
 if __name__ == "__main__":

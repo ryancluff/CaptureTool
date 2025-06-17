@@ -7,8 +7,8 @@ from numpy import typing as npt
 import sounddevice as sd
 
 from core.audio import int24_to_dbfs
-from capture_tool.interface import AudioInterface
-from capture_tool.wave import Wave, SineWave, SweepWave, AudioWave
+from core.interface import AudioInterface
+from core.wave import Wave, SineWave, SweepWave, AudioWave
 
 
 class Stream:

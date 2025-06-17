@@ -106,72 +106,72 @@ class AudioInterface:
             raise RuntimeError("return levels not set. exitting...")
         return return_level_dbfs + self.return_levels_dbu[channel - 1]
 
-    def reamp(self):
-        if self.send_level_dbu is None:
-            raise RuntimeError("reamp not calibrated. exitting...")
+    # def reamp(self):
+    #     if self.send_level_dbu is None:
+    #         raise RuntimeError("reamp not calibrated. exitting...")
 
-        # scale the reamp data using the reamp delta to output at the proper level
-        reamp_audio = np.array(self.wav.data * db_to_scalar(0 - self.send_level_dbu), dtype=np.int32)
+    #     # scale the reamp data using the reamp delta to output at the proper level
+    #     reamp_audio = np.array(self.wav.data * db_to_scalar(0 - self.send_level_dbu), dtype=np.int32)
 
-        current_frame = 0
-        recording_done = threading.Event()
+    #     current_frame = 0
+    #     recording_done = threading.Event()
 
-        def callback(outdata, frames, time, status):
-            if status:
-                print(status, file=sys.stderr)
+    #     def callback(outdata, frames, time, status):
+    #         if status:
+    #             print(status, file=sys.stderr)
 
-            nonlocal current_frame
-            chunksize = min(len(reamp_audio) - current_frame, frames)
+    #         nonlocal current_frame
+    #         chunksize = min(len(reamp_audio) - current_frame, frames)
 
-            # write the reamp data to the interface output channel
-            output = np.zeros((frames, self.num_sends))
-            output[:chunksize, self.channels["reamp"] - 1] = reamp_audio[
-                current_frame : current_frame + chunksize
-            ].flatten()
-            outdata[:] = self.pack(output)
+    #         # write the reamp data to the interface output channel
+    #         output = np.zeros((frames, self.num_sends))
+    #         output[:chunksize, self.channels["reamp"] - 1] = reamp_audio[
+    #             current_frame : current_frame + chunksize
+    #         ].flatten()
+    #         outdata[:] = self.pack(output)
 
-            current_frame += frames
-            if current_frame >= len(reamp_audio):
-                raise sd.CallbackStop()
+    #         current_frame += frames
+    #         if current_frame >= len(reamp_audio):
+    #             raise sd.CallbackStop()
 
-        stream = sd.RawOutputStream(
-            samplerate=self.wav.rate,
-            blocksize=self.blocksize,
-            device=self.device,
-            channels=(self.num_returns, self.num_sends),
-            dtype="int24",
-            callback=callback,
-            finished_callback=recording_done.set,
-        )
+    #     stream = sd.RawOutputStream(
+    #         samplerate=self.wav.rate,
+    #         blocksize=self.blocksize,
+    #         device=self.device,
+    #         channels=(self.num_returns, self.num_sends),
+    #         dtype="int24",
+    #         callback=callback,
+    #         finished_callback=recording_done.set,
+    #     )
 
-        with stream:
-            while not recording_done.wait(timeout=1.0):
-                current_seconds = current_frame // self.wav.rate
-                current_seconds = f"{current_seconds // 60:02d}:{current_seconds % 60:02d}"
-                total_seconds = len(self.wav.data) // self.wav.rate
-                total_seconds = f"{total_seconds // 60:02d}:{total_seconds % 60:02d}"
-                print(f"{current_seconds} / {total_seconds}")
+    #     with stream:
+    #         while not recording_done.wait(timeout=1.0):
+    #             current_seconds = current_frame // self.wav.rate
+    #             current_seconds = f"{current_seconds // 60:02d}:{current_seconds % 60:02d}"
+    #             total_seconds = len(self.wav.data) // self.wav.rate
+    #             total_seconds = f"{total_seconds // 60:02d}:{total_seconds % 60:02d}"
+    #             print(f"{current_seconds} / {total_seconds}")
 
-    def passthrough(self):
-        def callback(indata, outdata, frames, time, status):
-            if status:
-                print(status, file=sys.stderr)
+    # def passthrough(self):
+    #     def callback(indata, outdata, frames, time, status):
+    #         if status:
+    #             print(status, file=sys.stderr)
 
-            outdata[:] = indata
+    #         outdata[:] = indata
 
-        stream = sd.RawStream(
-            samplerate=self.samplerate,
-            blocksize=self.blocksize,
-            device=self.device,
-            channels=(self.num_returns, self.num_sends),
-            dtype="int24",
-            callback=callback,
-        )
+    #     stream = sd.RawStream(
+    #         samplerate=self.samplerate,
+    #         blocksize=self.blocksize,
+    #         device=self.device,
+    #         channels=(self.num_returns, self.num_sends),
+    #         dtype="int24",
+    #         callback=callback,
+    #     )
 
-        try:
-            with stream:
-                print("press ctrl+c to stop")
-                while True:
-                    time.sleep(1)
-        except KeyboardInterrupt:
-            pass
+    #     try:
+    #         with stream:
+    #             print("press ctrl+c to stop")
+    #             while True:
+    #                 time.sleep(1)
+    #     except KeyboardInterrupt:
+    #         pass
