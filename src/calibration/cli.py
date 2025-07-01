@@ -4,7 +4,7 @@ from core.db import ForgeDB
 from core.audio import vrms_to_dbu
 from core.interface import AudioInterface
 from core.stream import SineWaveStream, SineSweepStream
-from calibration.voltmeter import measure_acrms
+from calibration.ad2 import measure_acrms
 
 
 DEFAULT_FREQ = 1000  # Hz
