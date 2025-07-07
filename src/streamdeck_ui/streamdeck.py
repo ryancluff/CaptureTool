@@ -6,57 +6,30 @@ ROWS = 3
 COLS = 5
 
 
-def _get_bytes(data: bytes, offset: int, length: int = 1) -> bytes:
-    return data[offset : offset + length]
+def _pop_bytes(data: bytearray, length: int = 1) -> bytes:
+    """Pop bytes from the start of the data."""
+    result = bytes(data[:length])
+    del data[:length]
+    return result
 
 
-def _bytes_to_int(data: bytes, signed: bool = True) -> int:
-    return int.from_bytes(data, byteorder="little", signed=signed)
+def _pop_int(data: bytearray, length: int = 1) -> int:
+    """Pop a single byte and convert it to a signed integer."""
+    return int.from_bytes(
+        _pop_bytes(data, length=length), byteorder="little", signed=True
+    )
 
 
-def _int_to_bytes(value: int, length: int, signed: bool = True) -> bytes:
-    return value.to_bytes(length, byteorder="little", signed=signed)
+def _pop_uint(data: bytearray, length: int = 1) -> int:
+    """Pop a single byte and convert it to an unsigned integer."""
+    return int.from_bytes(
+        _pop_bytes(data, length=length), byteorder="little", signed=False
+    )
 
 
-class InputReport:
-    data: bytes
-    report_id: bytes
-    command: bytes
-    payload_length: int
-    payload: bytes
-
-    def __init__(self, input_data: bytes):
-        self.data = input_data
-
-        self.report_id = _get_bytes(input_data, 0)
-        self.command = _get_bytes(input_data, 1)
-
-        self.payload_length = _bytes_to_int(
-            _get_bytes(input_data, 2, length=2),
-            signed=False,
-        )
-        self.payload = _get_bytes(input_data, 4, length=self.payload_length)
-
-
-class OutputReport:
-    data: bytes
-    report_id: bytes
-    command: bytes
-    payload: bytes
-
-    payload_length: int = 1022
-
-    def __init__(self, report_id: bytes, command: bytes, payload: bytes):
-        assert len(report_id) == 1, "Report ID must be 1 byte"
-        assert len(command) == 1, "Command must be 1 byte"
-        assert len(payload) <= self.payload_length, "Payload exceeds maximum length"
-
-        self.report_id = report_id
-        self.command = command
-
-        self.payload = payload
-
-        self.data = report_id + command + (b"\0" * (self.payload_length - len(payload))) + payload
+def _pop_chars(data: bytearray, length: int = 1) -> str:
+    """Pop a single byte and convert it to an ASCII character."""
+    return _pop_bytes(data, length=length).decode("ascii")
 
 
 class StreamDeck(hid.Device):
@@ -66,16 +39,83 @@ class StreamDeck(hid.Device):
     def __init__(self):
         super().__init__(VID, PID)
 
-    def read_input(self):
-        input_data = self.read(19)
-        input_report = InputReport(input_data)
+    def read_input(self) -> tuple[bytes, bytes, int, bytes]:
+        response = bytearray(self.read(19))
 
-        assert input_report.report_id == 0x01, f"Invalid report ID: {input_report.report_id}"
-        assert input_report.command == 0x01, f"Invalid command: {input_report.command}"
+        report_id = _pop_bytes(response)
+        command = _pop_bytes(response)
+        data_length = _pop_uint(response, length=2)
+        data = _pop_bytes(response, length=data_length)
 
-        for i in range(ROWS):
-            for j in range(COLS):
-                self.key_state[i][j] = bool(input_report.payload[i * COLS + j] & 0x01)
+        return report_id, command, data_length, data
 
-    def get_serial(self):
-        self.get_feature_report(0x00, 8)
+    def write_output(self, report_id: bytes, command: bytes, payload: bytes):
+        pass
+
+    def get_firmware_version(self, name: str) -> tuple[bytes, int, bytes, str]:
+        firmware = {"LD": 0x04, "AP1": 0x05, "AP2": 0x07}
+        assert (
+            name in firmware.keys()
+        ), f"Invalid firmware name - {name} not in {firmware.keys()}"
+
+        response = bytearray(self.get_feature_report(firmware[name], 14))
+
+        report_id = _pop_bytes(response)
+        data_length = _pop_uint(response)
+        checksum = _pop_bytes(response, length=4)
+        version = _pop_chars(response, length=8)
+
+        return report_id, data_length, checksum, version
+
+    def get_serial_number(self) -> tuple[bytes, int, str]:
+        response = bytearray(self.get_feature_report(0x06, 16))
+
+        report_id = _pop_bytes(response)
+        data_length = _pop_uint(response)
+        serial_number = _pop_chars(response, length=14)
+
+        return report_id, data_length, serial_number
+
+    def get_sleep_idle(self) -> tuple[bytes, int, int]:
+        response = bytearray(self.get_feature_report(0x0A, 6))
+
+        report_id = _pop_bytes(response)
+        data_length = _pop_uint(response)
+        sleep_idle = _pop_uint(response)
+
+        return report_id, data_length, sleep_idle
+
+    def get_unit_info(
+        self,
+    ) -> tuple[bytes, int, int, int, int, int, int, int, int, int, int, int, bytes]:
+        response = bytearray(self.get_feature_report(0x08, 32))
+
+        report_id = _pop_bytes(response)
+        matrix_rows = _pop_uint(response)
+        matrix_cols = _pop_uint(response)
+        key_width = _pop_uint(response, length=2)
+        key_height = _pop_uint(response, length=2)
+        lcd_width = _pop_uint(response, length=2)
+        lcd_height = _pop_uint(response, length=2)
+        image_bpp = _pop_uint(response)
+        image_color_scheme = _pop_uint(response)
+        num_key_images = _pop_uint(response)
+        num_lcd_images = _pop_uint(response)
+        num_frames = _pop_uint(response)
+        reserved = _pop_bytes(response)
+
+        return (
+            report_id,
+            matrix_rows,
+            matrix_cols,
+            key_width,
+            key_height,
+            lcd_width,
+            lcd_height,
+            image_bpp,
+            image_color_scheme,
+            num_key_images,
+            num_lcd_images,
+            num_frames,
+            reserved,
+        )
