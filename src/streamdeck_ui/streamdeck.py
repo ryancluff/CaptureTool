@@ -119,3 +119,19 @@ class StreamDeck(hid.Device):
             num_frames,
             reserved,
         )
+
+    def show_logo(self) -> None:
+        payload = bytes([0x03, 0x02])
+        self.send_feature_report(payload)
+
+    def fill_lcd_with_color(self, r: int, g: int, b: int) -> None:
+        payload = bytes([0x03, 0x05, r, g, b])
+        self.send_feature_report(payload)
+
+    def fill_key_with_color(self, index: int, r: int, g: int, b: int) -> None:
+        payload = bytes([0x03, 0x06, index, r, g, b])
+        self.send_feature_report(payload)
+
+    def set_brightness(self, brightness: int) -> None:
+        payload = bytes([0x03, 0x08, brightness])
+        self.send_feature_report(payload)
